@@ -39,11 +39,11 @@ func initRaspLogger(dirName string, fileName string) *logs.BeeLogger {
 			tools.Panic(err.Error())
 		}
 	}
+
 	logger := logs.NewLogger()
 	logPath := path.Join(dirName, fileName)
-	err := logger.SetLogger(logs.AdapterFile,
+	err := logger.SetLogger(tools.AdapterAlarmFile,
 		`{"filename":"`+logPath+`", "daily":true, "maxdays":10, "perm":"0777"}`)
-	logger.SetPrefix("")
 	if err != nil {
 		tools.Panic("failed to init rasp log: " + err.Error())
 	}

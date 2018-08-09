@@ -15,7 +15,7 @@ var (
 func init() {
 	client, err := elastic.NewClient(elastic.SetURL(beego.AppConfig.String("EsAddr")))
 	if err != nil {
-		Panic("init ES failed")
+		Panic("init ES failed: " + err.Error())
 	}
 	EsClient = client
 }
