@@ -7,9 +7,9 @@ import (
 	_ "rasp-cloud/controllers"
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
-	"rasp-cloud/controllers"
 	"os"
 	"rasp-cloud/tools"
+	"rasp-cloud/controllers"
 )
 
 func main() {

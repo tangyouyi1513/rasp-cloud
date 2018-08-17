@@ -8,6 +8,8 @@ import (
 	"os"
 	"io/ioutil"
 	"net/http"
+	"bufio"
+	"regexp"
 )
 
 // Operations about plugin
@@ -21,7 +23,7 @@ var (
 )
 
 func init() {
-	if value, err := beego.AppConfig.Int("RaspLogMode"); err != nil || value <= 0 {
+	if value, err := beego.AppConfig.Int("MaxPlugins"); err != nil || value <= 0 {
 		maxPlugins = 50
 	} else {
 		maxPlugins = value
@@ -40,7 +42,7 @@ func (o *PluginController) Get() {
 	var plugin *models.Plugin
 	oldVersion := o.GetString("version")
 
-	if latestPlugin != nil {
+	if latestPlugin != nil && oldVersion < latestPlugin.Version {
 		plugin = latestPlugin
 	} else {
 		plugin = &models.Plugin{Version: oldVersion}
@@ -75,11 +77,31 @@ func (o *PluginController) Post() {
 		return
 	}
 
-	jsFiles, err := tools.ListFiles("plugin", "js", models.PluginPrefix)
+	firstLine, err := bufio.NewReader(file).ReadString('\n')
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "failed to read the plugin: "+err.Error())
+		return
+	}
+
+	var newVersion string
+	if versionArr := regexp.MustCompile(`'.+'|".+"`).FindAllString(firstLine, -1); len(versionArr) > 0 {
+		newVersion = versionArr[0][1 : len(versionArr[0])-1]
+	} else {
+		o.ServeError(http.StatusBadRequest, "failed to find the plugin version: "+err.Error())
+		return
+	}
+
+	jsFiles, err := tools.ListFiles("plugin", ".js", models.PluginPrefix)
 	if err != nil {
 		o.ServeError(http.StatusInternalServerError, "failed to list plugin directory")
 		return
 	}
+
+	if latestPlugin != nil && newVersion <= latestPlugin.Version {
+		o.ServeError(http.StatusBadRequest, "the file version must be larger than the current version")
+		return
+	}
+
 	// 超过插件数量上限,删除多于插件
 	if len(jsFiles) > maxPlugins-1 && maxPlugins > 0 {
 		for _, value := range jsFiles[maxPlugins-1:] {
@@ -90,18 +112,13 @@ func (o *PluginController) Post() {
 		}
 	}
 
-	newVersion := fileName[0 : len(fileName)-3]
-	if newVersion <= latestPlugin.Version {
-		o.ServeError(http.StatusBadRequest, "the file version must be larger than the current version")
-		return
-	}
-
+	var newPluginPath = "plugin/" + models.PluginPrefix + newVersion + ".js"
 	// 文件不存在创建文件,存在则覆盖文件
-	if err := o.SaveToFile("plugin", "plugin/"+fileName); err != nil {
+	if err := o.SaveToFile("plugin", newPluginPath); err != nil {
 		o.ServeError(http.StatusInternalServerError, "failed to save upload file: "+err.Error())
 		return
 	}
-	content, err := ioutil.ReadFile("plugin/" + fileName)
+	content, err := ioutil.ReadFile(newPluginPath)
 	if err != nil {
 		o.ServeError(http.StatusInternalServerError, "failed to read new file: "+err.Error())
 		return

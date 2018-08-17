@@ -32,7 +32,7 @@ func GetLatestPluginFromDir() (plugin *Plugin, err error) {
 		return
 	}
 	if len(jsFiles) > 0 {
-		newVersion := jsFiles[0][0 : len(jsFiles[0])-3]
+		newVersion := jsFiles[0][len(PluginPrefix) : len(jsFiles[0])-3]
 		fileContent, readErr := tools.ReadFromFile("plugin/" + jsFiles[0])
 		if readErr != nil {
 			err = readErr
