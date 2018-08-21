@@ -21,7 +21,7 @@ func init() {
 func logAccess(ctx *context.Context) {
 	var cont string
 	cont += "[T]" + formatTime(time.Now().Unix(), "15:04:05") + " " + ctx.Input.Method() + " " +
-		ctx.Input.Site() + ctx.Input.URL() + " - [I]" + ctx.Input.IP() + " | [U]" + ctx.Input.UserAgent()
+		ctx.Input.Site() + ctx.Input.URI() + " - [I]" + ctx.Input.IP() + " | [U]" + ctx.Input.UserAgent()
 	if ctx.Input.Referer() != "" {
 		cont += "[F]" + ctx.Input.Referer()
 	}
