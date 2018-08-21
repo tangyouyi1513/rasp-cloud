@@ -12,8 +12,8 @@ type BaseController struct {
 
 func (o *BaseController) Prepare() {
 	// auth
-	authId := o.Ctx.Input.Header("X-OpenRASP-Authentication-ID")
-	if authId != beego.AppConfig.String("AuthID") {
+	authId := o.Ctx.Input.Header("X-OpenRASP-AppID")
+	if authId != beego.AppConfig.String("AppID") {
 		o.ServeError(401)
 	}
 }

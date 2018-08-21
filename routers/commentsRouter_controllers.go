@@ -9,16 +9,16 @@ func init() {
 
 	beego.GlobalControllerRouter["rasp-cloud/controllers:PluginController"] = append(beego.GlobalControllerRouter["rasp-cloud/controllers:PluginController"],
 		beego.ControllerComments{
-			Method: "Get",
+			Method: "Upgrade",
 			Router: `/`,
-			AllowHTTPMethods: []string{"get"},
+			AllowHTTPMethods: []string{"post"},
 			MethodParams: param.Make(),
 			Params: nil})
 
 	beego.GlobalControllerRouter["rasp-cloud/controllers:PluginController"] = append(beego.GlobalControllerRouter["rasp-cloud/controllers:PluginController"],
 		beego.ControllerComments{
-			Method: "Post",
-			Router: `/`,
+			Method: "Upload",
+			Router: `/upload`,
 			AllowHTTPMethods: []string{"post"},
 			MethodParams: param.Make(),
 			Params: nil})

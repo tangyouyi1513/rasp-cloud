@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"bufio"
 	"regexp"
+	"encoding/json"
 )
 
 // Operations about plugin
@@ -37,22 +38,24 @@ func init() {
 	}
 }
 
-// @router / [get]
-func (o *PluginController) Get() {
-	var plugin *models.Plugin
-	oldVersion := o.GetString("version")
+// @router / [post]
+func (o *PluginController) Upgrade() {
+	plugin := &models.Plugin{}
+	err := json.Unmarshal(o.Ctx.Input.RequestBody, plugin)
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "json format error")
+		return
+	}
 
-	if latestPlugin != nil && oldVersion < latestPlugin.Version {
+	if latestPlugin != nil && plugin.Version < latestPlugin.Version {
 		plugin = latestPlugin
-	} else {
-		plugin = &models.Plugin{Version: oldVersion}
 	}
 
 	o.Serve(plugin)
 }
 
-// @router / [post]
-func (o *PluginController) Post() {
+// @router /upload [post]
+func (o *PluginController) Upload() {
 	file, info, err := o.GetFile("plugin")
 	if file == nil {
 		o.ServeError(http.StatusBadRequest, "must have the plugin parameter")
