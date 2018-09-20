@@ -12,28 +12,15 @@
 //See the License for the specific language governing permissions and
 //limitations under the License.
 
-package logs
+package fore_logs
 
 import (
-	"rasp-cloud/tools"
+	"rasp-cloud/controllers"
 )
 
-type AttackAlarm struct {
-	content string
+// Operations about policy alarm message
+type PolicyAlarmController struct {
+	controllers.BaseController
 }
 
-var (
-	attackIndexName      = "openrasp-attack-alarm"
-	aliasAttackIndexName = "real-openrasp-attack-alarm"
-)
 
-func init() {
-	err := tools.CreateEsIndex(attackIndexName, aliasAttackIndexName)
-	if err != nil {
-		tools.Panic("failed to create index " + aliasAttackIndexName + ": " + err.Error())
-	}
-}
-
-func AddAttackAlarm(content []byte) {
-	AddAlarmFunc(AttackAlarmType, content)
-}

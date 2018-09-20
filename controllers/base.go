@@ -1,3 +1,17 @@
+//Copyright 2017-2018 Baidu Inc.
+//
+//Licensed under the Apache License, Version 2.0 (the "License");
+//you may not use this file except in compliance with the License.
+//You may obtain a copy of the License at
+//
+//http: //www.apache.org/licenses/LICENSE-2.0
+//
+//Unless required by applicable law or agreed to in writing, software
+//distributed under the License is distributed on an "AS IS" BASIS,
+//WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//See the License for the specific language governing permissions and
+//limitations under the License.
+
 package controllers
 
 import (
@@ -10,16 +24,13 @@ type BaseController struct {
 	beego.Controller
 }
 
-func (o *BaseController) Prepare() {
-	// auth
-	authId := o.Ctx.Input.Header("X-OpenRASP-AppID")
-	if authId != beego.AppConfig.String("AppID") {
-		o.ServeError(401)
-	}
-}
-
 func (o *BaseController) Serve(data interface{}) {
 	o.Data["json"] = map[string]interface{}{"status": 0, "description": "ok", "data": data}
+	o.ServeJSON()
+}
+
+func (o *BaseController) ServeWithoutData() {
+	o.Data["json"] = map[string]interface{}{"status": 0, "description": "ok"}
 	o.ServeJSON()
 }
 
@@ -32,4 +43,5 @@ func (o *BaseController) ServeError(code int, description ...string) {
 	}
 	o.Data["json"] = map[string]interface{}{"status": code, "description": des}
 	o.ServeJSON()
+	panic(description)
 }

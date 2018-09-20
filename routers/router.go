@@ -15,31 +15,77 @@
 package routers
 
 import (
-	"rasp-cloud/controllers"
-
 	"github.com/astaxie/beego"
-	"rasp-cloud/controllers/logs"
+	"rasp-cloud/controllers/agent"
+	"rasp-cloud/controllers/agent/agent_logs"
+	"rasp-cloud/controllers/api"
+	"rasp-cloud/controllers/api/fore_logs"
 )
 
 func init() {
 	ns := beego.NewNamespace("/v1",
-		beego.NSNamespace("/plugin",
-			beego.NSInclude(
-				&controllers.PluginController{},
-			),
-		),
-		beego.NSNamespace("/log",
-			beego.NSNamespace("/attack",
+		beego.NSNamespace("/agent",
+
+			beego.NSNamespace("/heartbeat",
 				beego.NSInclude(
-					&logs.AttackAlarmController{},
+					&agent.HeartbeatController{},
 				),
 			),
-			beego.NSNamespace("/policy",
+			beego.NSNamespace("/log",
+				beego.NSNamespace("/attack",
+					beego.NSInclude(
+						&agent_logs.AttackAlarmController{},
+					),
+				),
+				beego.NSNamespace("/policy",
+					beego.NSInclude(
+						&agent_logs.PolicyAlarmController{},
+					),
+				),
+			),
+			beego.NSNamespace("/rasp",
 				beego.NSInclude(
-					&logs.PolicyAlarmController{},
+					&agent.RaspController{},
 				),
 			),
 		),
+		beego.NSNamespace("/api",
+
+			beego.NSNamespace("/plugin",
+				beego.NSInclude(
+					&api.PluginController{},
+				),
+			),
+			beego.NSNamespace("/log",
+				beego.NSNamespace("/attack",
+					beego.NSInclude(
+						&fore_logs.AttackAlarmController{},
+					),
+				),
+				beego.NSNamespace("/policy",
+					beego.NSInclude(
+						&fore_logs.PolicyAlarmController{},
+					),
+				),
+			),
+			beego.NSNamespace("/app",
+				beego.NSInclude(
+					&api.AppController{},
+				),
+			),
+			beego.NSNamespace("/rasp",
+				beego.NSInclude(
+					&api.RaspController{},
+				),
+			),
+			beego.NSNamespace("/token",
+				beego.NSInclude(
+					&api.TokenController{},
+				),
+			),
+		),
+		beego.NSNamespace("/user", beego.NSInclude(&api.UserController{})),
+
 	)
 	beego.AddNamespace(ns)
 }

@@ -7,7 +7,7 @@ import (
 
 func init() {
 
-	beego.GlobalControllerRouter["rasp-cloud/controllers/logs:AttackAlarmController"] = append(beego.GlobalControllerRouter["rasp-cloud/controllers/logs:AttackAlarmController"],
+	beego.GlobalControllerRouter["rasp-cloud/controllers/agent:HeartbeatController"] = append(beego.GlobalControllerRouter["rasp-cloud/controllers/agent:HeartbeatController"],
 		beego.ControllerComments{
 			Method: "Post",
 			Router: `/`,
@@ -15,7 +15,7 @@ func init() {
 			MethodParams: param.Make(),
 			Params: nil})
 
-	beego.GlobalControllerRouter["rasp-cloud/controllers/logs:PolicyAlarmController"] = append(beego.GlobalControllerRouter["rasp-cloud/controllers/logs:PolicyAlarmController"],
+	beego.GlobalControllerRouter["rasp-cloud/controllers/agent:RaspController"] = append(beego.GlobalControllerRouter["rasp-cloud/controllers/agent:RaspController"],
 		beego.ControllerComments{
 			Method: "Post",
 			Router: `/`,
