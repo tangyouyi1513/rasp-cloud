@@ -78,10 +78,10 @@ func AddPlugin(version string, content []byte) (plugin *Plugin, err error) {
 	if count, err = mongo.Count(pluginCollectionName); err != nil {
 		return
 	}
-	if count > MaxPlugins {
+	if count > MaxPlugins-1 {
 		var oldPlugins []Plugin
 		err = mongo.FindAllBySort(pluginCollectionName, nil, 0,
-			count-MaxPlugins, oldPlugins, "-version")
+			count+1-MaxPlugins, &oldPlugins, "version")
 		if err != nil {
 			return
 		}
@@ -97,7 +97,7 @@ func AddPlugin(version string, content []byte) (plugin *Plugin, err error) {
 }
 
 func GetLatestPlugin() (plugin *Plugin, err error) {
-	err = mongo.FindOneBySort(pluginCollectionName, bson.M{}, plugin, "version")
+	err = mongo.FindOneBySort(pluginCollectionName, bson.M{}, &plugin, "-version")
 	return
 }
 
@@ -109,7 +109,7 @@ func GetPluginByVersion(version string) (plugin *Plugin, err error) {
 func GetAllPlugin() (plugins []Plugin, err error) {
 	newSession := mongo.NewSession()
 	defer newSession.Close()
-	err = newSession.DB(mongo.DbName).C(pluginCollectionName).Find(nil).All(plugins)
+	err = newSession.DB(mongo.DbName).C(pluginCollectionName).Find(nil).All(&plugins)
 	return
 }
 

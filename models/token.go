@@ -32,23 +32,24 @@ const (
 	tokenCollectionName = "token"
 )
 
-func GetAllTokent(page int, perpage int) (count int, result []Token, err error) {
-	count, err = mongo.FindAll(tokenCollectionName, nil, result, perpage*(page-1), perpage)
+func GetAllTokent(page int, perpage int) (count int, result []*Token, err error) {
+	count, err = mongo.FindAll(tokenCollectionName, nil, &result, perpage*(page-1), perpage)
 	return
 }
 
 func HasTokent(token string) (bool, error) {
 	var result *Token
-	err := mongo.FindId(tokenCollectionName, token, result)
+	err := mongo.FindId(tokenCollectionName, token, &result)
 	if err != nil || result == nil {
 		return false, err
 	}
 	return true, err
 }
 
-func AddToken(description string) (token *Token, err error) {
-	token = &Token{Token: generateToken(), Description: description}
+func AddToken(token *Token) (result *Token, err error) {
+	token.Token = generateToken()
 	err = mongo.Insert(tokenCollectionName, token)
+	result = token
 	return
 }
 
@@ -61,6 +62,6 @@ func RemoveToken(tokenId string) (token *Token, err error) {
 }
 
 func generateToken() string {
-	random := "openrasp_token" + strconv.Itoa(time.Now().Nanosecond()) + strconv.Itoa(rand.Intn(5000))
+	random := "openrasp_token" + strconv.FormatInt(time.Now().UnixNano(), 10) + strconv.Itoa(rand.Intn(5000))
 	return fmt.Sprintf("%x", sha1.Sum([]byte(random)))
 }

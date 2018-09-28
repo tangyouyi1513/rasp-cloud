@@ -37,14 +37,14 @@ func (o *AppController) GetAll() {
 	if name == "" {
 		page, err := o.GetInt("page")
 		if err != nil {
-			o.ServeError(http.StatusBadRequest, err.Error())
+			o.ServeError(http.StatusBadRequest, "failed to get page param: "+err.Error())
 		}
 		if page <= 0 {
 			o.ServeError(http.StatusBadRequest, "page must be greater than 0")
 		}
 		perpage, err := o.GetInt("perpage")
 		if err != nil {
-			o.ServeError(http.StatusBadRequest, err.Error())
+			o.ServeError(http.StatusBadRequest, "failed to get perpage param: "+err.Error())
 		}
 		if perpage <= 0 {
 			o.ServeError(http.StatusBadRequest, "perpage must be greater than 0")
@@ -78,7 +78,7 @@ func (o *AppController) GetRasps() {
 	}
 	page, err := o.GetInt("page")
 	if err != nil {
-		o.ServeError(http.StatusBadRequest, err.Error())
+		o.ServeError(http.StatusBadRequest, "failed to get page param: "+err.Error())
 	}
 	if page <= 0 {
 		o.ServeError(http.StatusBadRequest, "page must be greater than 0")
@@ -88,7 +88,7 @@ func (o *AppController) GetRasps() {
 		o.ServeError(http.StatusBadRequest, err.Error())
 	}
 	if perpage <= 0 {
-		o.ServeError(http.StatusBadRequest, "perpage must be greater than 0")
+		o.ServeError(http.StatusBadRequest, "failed to get perpage param: "+"perpage must be greater than 0")
 	}
 
 	app, err := models.GetAppByName(name)
@@ -111,19 +111,35 @@ func (o *AppController) GetRasps() {
 
 // @router /config [post]
 func (o *AppController) Config() {
-	var config map[string]interface{}
-	err := json.Unmarshal(o.Ctx.Input.RequestBody, config)
+	var param map[string]interface{}
+	err := json.Unmarshal(o.Ctx.Input.RequestBody, &param)
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "json format error： "+err.Error())
 	}
-	validateConfig(config, o)
-	appId := o.GetString("app_id")
+	appIdParam := param["app_id"]
+	if appIdParam == nil {
+		o.ServeError(http.StatusBadRequest, "the app_id can not be empty")
+	}
+	appId, ok := appIdParam.(string)
+	if !ok {
+		o.ServeError(http.StatusBadRequest, "the app_id must be string")
+	}
 	app, err := models.GetAppById(appId)
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to get app from mongodb: "+err.Error())
 	}
 
-	configTime := time.Now().Nanosecond()
+	configParam := param["config"]
+	if configParam == nil {
+		o.ServeError(http.StatusBadRequest, "the config can not be empty")
+	}
+	config, ok := configParam.(map[string]interface{})
+	if !ok {
+		o.ServeError(http.StatusBadRequest, "the type of config must be object")
+	}
+	validateConfig(config, o)
+
+	configTime := time.Now().UnixNano()
 	app.ConfigTime = configTime
 	app.Config = config
 	err = models.UpdateAppById(app.Id, app)
@@ -151,6 +167,8 @@ func (o *AppController) Post() {
 	}
 	if app.Config != nil {
 		validateConfig(app.Config, o)
+	} else {
+		app.Config = make(map[string]interface{})
 	}
 
 	app, err = models.AddApp(app)

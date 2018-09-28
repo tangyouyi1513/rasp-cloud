@@ -24,13 +24,15 @@ import (
 	"gopkg.in/mgo.v2"
 	"crypto/sha1"
 	"gopkg.in/mgo.v2/bson"
+	"rasp-cloud/es"
+	"rasp-cloud/models/logs"
 )
 
 type App struct {
 	Id          string                 `json:"id" bson:"_id"`
 	Name        string                 `json:"name"  bson:"name"`
 	Description string                 `json:"description"  bson:"description"`
-	ConfigTime  int                    `json:"config_time"  bson:"config_time"`
+	ConfigTime  int64                  `json:"config_time"  bson:"config_time"`
 	Config      map[string]interface{} `json:"config"  bson:"config"`
 }
 
@@ -57,13 +59,32 @@ func init() {
 	}
 }
 
-func AddApp(app *App) (*App, error) {
-	app.Id = generateAppId(app)
-	return app, mongo.Insert(appCollectionName, app)
+func AddApp(app *App) (result *App, err error) {
+	if app.Id == "" {
+		app.Id = generateAppId(app)
+	}
+	err = mongo.UpsertId(appCollectionName, app.Id, app)
+	if err != nil {
+		return
+	}
+	err = es.CreateEsIndex(logs.PolicyIndexName+"-"+app.Id, logs.AliasPolicyIndexName+"-"+app.Id)
+	if err != nil {
+		return
+	}
+	err = es.CreateEsIndex(logs.AttackAlarmType+"-"+app.Id, logs.AliasAttackIndexName+"-"+app.Id)
+	if err != nil {
+		return
+	}
+	err = es.CreateEsIndex(ReportIndexName+"-"+app.Id, AliasReportIndexName+"-"+app.Id)
+	if err != nil {
+		return
+	}
+	result = app
+	return
 }
 
 func generateAppId(app *App) string {
-	random := "openrasp_app" + app.Name + strconv.Itoa(time.Now().Nanosecond()) + strconv.Itoa(rand.Intn(10000))
+	random := "openrasp_app" + app.Name + strconv.FormatInt(time.Now().UnixNano(), 10) + strconv.Itoa(rand.Intn(10000))
 	return fmt.Sprintf("%x", sha1.Sum([]byte(random)))
 }
 

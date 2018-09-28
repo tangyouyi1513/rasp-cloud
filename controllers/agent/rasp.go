@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"rasp-cloud/controllers"
+	"time"
 )
 
 type RaspController struct {
@@ -36,6 +37,9 @@ func (o *RaspController) Post() {
 	}
 	if rasp.Id == "" {
 		o.ServeError(http.StatusBadRequest, "rasp id can not be empty")
+	}
+	if len(rasp.Id) < 16 {
+		o.ServeError(http.StatusBadRequest, "rasp id can not be less than 16")
 	}
 	if len(rasp.Id) >= 512 {
 		o.ServeError(http.StatusBadRequest, "the length of rasp id must be less than 512")
@@ -59,6 +63,7 @@ func (o *RaspController) Post() {
 		o.ServeError(http.StatusBadRequest, "the length of rasp server version must be less than 50")
 	}
 
+	rasp.LastHeartbeatTime = time.Now().Unix()
 	err = models.UpsertRaspById(rasp.Id, rasp)
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to add rasp: "+err.Error())

@@ -48,6 +48,11 @@ func init() {
 					&agent.RaspController{},
 				),
 			),
+			beego.NSNamespace("/report",
+				beego.NSInclude(
+					&agent.ReportController{},
+				),
+			),
 		),
 		beego.NSNamespace("/api",
 

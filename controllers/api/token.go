@@ -18,6 +18,7 @@ import (
 	"rasp-cloud/controllers"
 	"net/http"
 	"rasp-cloud/models"
+	"encoding/json"
 )
 
 type TokenController struct {
@@ -28,14 +29,14 @@ type TokenController struct {
 func (o *TokenController) Get() {
 	page, err := o.GetInt("page")
 	if err != nil {
-		o.ServeError(http.StatusBadRequest, err.Error())
+		o.ServeError(http.StatusBadRequest, "failed to get page param: "+err.Error())
 	}
 	if page <= 0 {
 		o.ServeError(http.StatusBadRequest, "page must be greater than 0")
 	}
 	perpage, err := o.GetInt("perpage")
 	if err != nil {
-		o.ServeError(http.StatusBadRequest, err.Error())
+		o.ServeError(http.StatusBadRequest, "failed to get perpage param: "+err.Error())
 	}
 	if perpage <= 0 {
 		o.ServeError(http.StatusBadRequest, "perpage must be greater than 0")
@@ -45,7 +46,7 @@ func (o *TokenController) Get() {
 		o.ServeError(http.StatusBadRequest, "failed to get tokens: "+err.Error())
 	}
 	if tokens == nil {
-		tokens = make([]models.Token, 0)
+		tokens = make([]*models.Token, 0)
 	}
 	var result = make(map[string]interface{})
 	result["total"] = total
@@ -54,13 +55,17 @@ func (o *TokenController) Get() {
 	o.Serve(result)
 }
 
-// @router /new [get]
-func (o *TokenController) NewToken() {
-	description := o.GetString("description")
-	if len(description) > 1024 {
+// @router / [post]
+func (o *TokenController) Post() {
+	var token *models.Token
+	err := json.Unmarshal(o.Ctx.Input.RequestBody, &token)
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "json format error： "+err.Error())
+	}
+	if len(token.Description) > 1024 {
 		o.ServeError(http.StatusBadRequest, "the length of the token description must be less than 1024")
 	}
-	token, err := models.AddToken(description)
+	token, err = models.AddToken(token)
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to create new token: "+err.Error())
 	}

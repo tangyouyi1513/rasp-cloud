@@ -19,6 +19,8 @@ import (
 	"net/http"
 	"encoding/json"
 	"rasp-cloud/controllers"
+	"gopkg.in/mgo.v2"
+	"time"
 )
 
 // Operations about plugin
@@ -29,25 +31,43 @@ type HeartbeatController struct {
 // @router / [post]
 func (o *HeartbeatController) Post() {
 	var heartbeat map[string]interface{}
-	err := json.Unmarshal(o.Ctx.Input.RequestBody, heartbeat)
+	err := json.Unmarshal(o.Ctx.Input.RequestBody, &heartbeat)
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "json format error： "+err.Error())
 	}
+	raspIdParam := heartbeat["rasp_id"]
+	if raspIdParam == nil {
+		o.ServeError(http.StatusBadRequest, "rasp_id can not be empty")
+	}
+	raspId, ok := raspIdParam.(string)
+	if !ok {
+		o.ServeError(http.StatusBadRequest, "the type of rasp_id must be string")
+	}
+	rasp, err := models.GetRaspById(raspId)
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "failed to get rasp: "+err.Error())
+	}
+	rasp.LastHeartbeatTime = time.Now().Unix()
+	err = models.UpsertRaspById(raspId, rasp)
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "failed to upsert rasp: "+err.Error())
+	}
+
 	pluginVersion := heartbeat["plugin_version"]
 	if pluginVersion == nil {
 		o.ServeError(http.StatusBadRequest, "plugin_version can not be empty")
 	}
-	pluginVersion, ok := pluginVersion.(string)
+	pluginVersion, ok = pluginVersion.(string)
 	if !ok {
-		o.ServeError(http.StatusBadRequest, "the type of plugin_version must be string: "+err.Error())
+		o.ServeError(http.StatusBadRequest, "the type of plugin_version must be string")
 	}
-	configTime := heartbeat["config_time"]
-	if configTime == nil {
+	configTimeParam := heartbeat["config_time"]
+	if configTimeParam == nil {
 		o.ServeError(http.StatusBadRequest, "config_time can not be empty")
 	}
-	configTime, ok = configTime.(int)
+	configTime, ok := configTimeParam.(float64)
 	if !ok {
-		o.ServeError(http.StatusBadRequest, "the type of config_time must be integer: "+err.Error())
+		o.ServeError(http.StatusBadRequest, "the type of config_time must be integer")
 	}
 
 	appId := o.Ctx.Input.Header("X-OpenRASP-AppID")
@@ -62,19 +82,16 @@ func (o *HeartbeatController) Post() {
 	var result = make(map[string]interface{})
 	// 处理插件
 	latestPlugin, err := models.GetLatestPlugin()
-	if err != nil {
+	if err != nil && err != mgo.ErrNotFound {
 		o.ServeError(http.StatusBadRequest, "failed to get latest plugin： "+err.Error())
 	}
 	if latestPlugin != nil && pluginVersion.(string) < latestPlugin.Version {
 		result["plugin"] = latestPlugin
 	}
 	// 处理配置
-	if app.ConfigTime > 0 && app.ConfigTime > configTime.(int) {
+	if app.ConfigTime > 0 && app.ConfigTime > int64(configTime) {
 		result["config_time"] = app.ConfigTime
 		result["config"] = app.Config
-	}
-	if err != nil {
-		o.ServeError(http.StatusBadRequest, "json format error: "+err.Error())
 	}
 
 	o.Serve(result)

@@ -22,15 +22,16 @@ import (
 )
 
 type Rasp struct {
-	Id              string `json:"id" bson:"_id"`
-	AppId           string `json:"app_id" bson:"app_id"`
-	Version         string `json:"version" bson:"version"`
-	HostName        string `json:"host_name" bson:"host_name"`
-	Language        string `json:"language" bson:"language"`
-	LanguageVersion string `json:"language_version" bson:"language_version"`
-	ServerType      string `json:"server_type" bson:"server_type"`
-	ServerVersion   string `json:"server_version" bson:"server_version"`
-	RaspHome        string `json:"rasp_home" bson:"rasp_home"`
+	Id                string `json:"id" bson:"_id"`
+	AppId             string `json:"app_id" bson:"app_id"`
+	Version           string `json:"version" bson:"version"`
+	HostName          string `json:"host_name" bson:"host_name"`
+	Language          string `json:"language" bson:"language"`
+	LanguageVersion   string `json:"language_version" bson:"language_version"`
+	ServerType        string `json:"server_type" bson:"server_type"`
+	ServerVersion     string `json:"server_version" bson:"server_version"`
+	RaspHome          string `json:"rasp_home" bson:"rasp_home"`
+	LastHeartbeatTime int64  `json:"last_heartbeat_time" bson:"last_heartbeat_time"`
 }
 
 const (
@@ -66,6 +67,11 @@ func GetRaspByAppId(id string, page int, perpage int) (count int, result []*Rasp
 }
 
 func FindRasp(selector map[string]interface{}, page int, perpage int) (count int, result []*Rasp, err error) {
-	count, err = mongo.FindAll(raspCollectionName, bson.M(selector), result, perpage*(page-1), perpage)
+	count, err = mongo.FindAll(raspCollectionName, bson.M(selector), &result, perpage*(page-1), perpage)
+	return
+}
+
+func GetRaspById(id string) (rasp *Rasp, err error) {
+	err = mongo.FindOne(raspCollectionName, bson.M{"_id": id}, &rasp)
 	return
 }

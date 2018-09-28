@@ -23,6 +23,7 @@ import (
 	"rasp-cloud/controllers"
 	"io/ioutil"
 	"io"
+	"gopkg.in/mgo.v2"
 )
 
 // Operations about plugin
@@ -64,7 +65,7 @@ func (o *PluginController) Upload() {
 	}
 
 	plugin, err := models.GetLatestPlugin()
-	if err != nil {
+	if err != nil && err != mgo.ErrNotFound {
 		o.ServeError(http.StatusBadRequest, "failed to get latest plugin: "+err.Error())
 	}
 	if plugin != nil && plugin.Version >= newVersion {

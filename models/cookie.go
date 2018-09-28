@@ -20,7 +20,6 @@ import (
 	"rasp-cloud/tools"
 	"gopkg.in/mgo.v2"
 	"github.com/astaxie/beego"
-	"fmt"
 )
 
 type Cookie struct {
@@ -63,7 +62,6 @@ func NewCookie(id string) error {
 func HasCookie(id string) (bool, error) {
 	var result *Cookie
 	err := mongo.FindId(cookieCollectionName, id, &result)
-	fmt.Println(result.Id)
 	if err != nil || result == nil {
 		return false, err
 	}

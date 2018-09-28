@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"rasp-cloud/models"
 	"encoding/json"
+	"time"
 )
 
 type UserController struct {
@@ -45,7 +46,8 @@ func (o *UserController) Login() {
 		o.ServeError(http.StatusBadRequest, "the length of username or password can not be greater than 512")
 	}
 	if logUser == models.GetLoginUser() && logPasswd == models.GetLoginPasswd() {
-		cookie := fmt.Sprintf("%x", md5.Sum([]byte(strconv.Itoa(rand.Intn(10000))+logUser+"openrasp")))
+		cookie := fmt.Sprintf("%x", md5.Sum([]byte(strconv.Itoa(rand.Intn(10000)) + logUser + "openrasp"+
+			strconv.FormatInt(time.Now().UnixNano(), 10))))
 		err := models.NewCookie(cookie)
 		if err != nil {
 			o.ServeError(http.StatusUnauthorized, "failed to create cookie: "+err.Error())

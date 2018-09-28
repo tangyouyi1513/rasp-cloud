@@ -12,7 +12,7 @@
 //See the License for the specific language governing permissions and
 //limitations under the License.
 
-package tools
+package es
 
 import (
 	"github.com/astaxie/beego"
@@ -20,38 +20,52 @@ import (
 	"time"
 	"context"
 	"github.com/astaxie/beego/logs"
+	"rasp-cloud/tools"
 )
 
 var (
-	EsClient *elastic.Client
+	ElasticClient *elastic.Client
 )
 
 func init() {
 	client, err := elastic.NewClient(elastic.SetURL(beego.AppConfig.String("EsAddr")))
 	if err != nil {
-		Panic("init ES failed: " + err.Error())
+		tools.Panic("init ES failed: " + err.Error())
 	}
-	EsClient = client
+	ElasticClient = client
 }
 
 func CreateEsIndex(name string, aliasName string) error {
-	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(20*time.Second))
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(30*time.Second))
 	defer cancel()
-	exist, err := EsClient.IndexExists(name).Do(ctx)
+	exists, err := ElasticClient.IndexExists(name).Do(ctx)
 	if err != nil {
 		return err
 	}
-	if !exist {
-		createResult, err := EsClient.CreateIndex(name).Do(ctx)
+	if !exists {
+		createResult, err := ElasticClient.CreateIndex(name).Do(ctx)
 		if err != nil {
 			return err
 		}
 		logs.Info("create es index: " + createResult.Index)
-		aliasResult, err := EsClient.Alias().Add(name, aliasName).Do(ctx)
+		exists, err = ElasticClient.IndexExists(aliasName).Do(ctx)
 		if err != nil {
 			return err
 		}
-		logs.Info("create es index alias: " + aliasResult.Index)
+		if !exists {
+			aliasResult, err := ElasticClient.Alias().Add(name, aliasName).Do(ctx)
+			if err != nil {
+				return err
+			}
+			logs.Info("create es index alias: " + aliasResult.Index)
+		}
 	}
 	return nil
+}
+
+func Insert(index string,docType string, doc interface{}) (err error) {
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(20*time.Second))
+	defer cancel()
+	_, err = ElasticClient.Index().Index(index).Type(docType).BodyJson(doc).Do(ctx)
+	return
 }

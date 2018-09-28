@@ -107,7 +107,7 @@ func FindOneBySort(collection string, query interface{}, result interface{}, sor
 func FindAllBySort(collection string, query interface{}, skip int, limit int, result interface{}, sortFields ...string) error {
 	newSession := NewSession()
 	defer newSession.Close()
-	return newSession.DB(DbName).C(collection).Find(query).Sort(sortFields...).Skip(limit).Limit(limit).All(result)
+	return newSession.DB(DbName).C(collection).Find(query).Sort(sortFields...).Skip(skip).Limit(limit).All(result)
 }
 
 func UpdateId(collection string, id interface{}, doc interface{}) error {

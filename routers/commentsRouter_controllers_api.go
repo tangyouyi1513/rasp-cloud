@@ -81,17 +81,17 @@ func init() {
 
 	beego.GlobalControllerRouter["rasp-cloud/controllers/api:TokenController"] = append(beego.GlobalControllerRouter["rasp-cloud/controllers/api:TokenController"],
 		beego.ControllerComments{
-			Method: "Delete",
-			Router: `/delete`,
-			AllowHTTPMethods: []string{"delete"},
+			Method: "Post",
+			Router: `/`,
+			AllowHTTPMethods: []string{"post"},
 			MethodParams: param.Make(),
 			Params: nil})
 
 	beego.GlobalControllerRouter["rasp-cloud/controllers/api:TokenController"] = append(beego.GlobalControllerRouter["rasp-cloud/controllers/api:TokenController"],
 		beego.ControllerComments{
-			Method: "NewToken",
-			Router: `/new`,
-			AllowHTTPMethods: []string{"get"},
+			Method: "Delete",
+			Router: `/delete`,
+			AllowHTTPMethods: []string{"delete"},
 			MethodParams: param.Make(),
 			Params: nil})
 

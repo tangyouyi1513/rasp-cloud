@@ -28,15 +28,15 @@ type RaspController struct {
 // @router /find [post]
 func (o *RaspController) Post() {
 	var data map[string]interface{}
-	err := json.Unmarshal(o.Ctx.Input.RequestBody, data)
+	err := json.Unmarshal(o.Ctx.Input.RequestBody, &data)
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "json format error： "+err.Error())
 	}
 	pageParam := data["page"]
 	if pageParam == nil {
-		o.ServeError(http.StatusBadRequest, "the page param can not be empty")
+		o.ServeError(http.StatusBadRequest, "failed to get page param: "+"the page param can not be empty")
 	}
-	page, ok := pageParam.(int)
+	page, ok := pageParam.(float64)
 	if !ok {
 		o.ServeError(http.StatusBadRequest, "the page param must be integer")
 	}
@@ -45,9 +45,9 @@ func (o *RaspController) Post() {
 	}
 	perpageParam := data["perpage"]
 	if perpageParam == nil {
-		o.ServeError(http.StatusBadRequest, "the perpage param can not be empty")
+		o.ServeError(http.StatusBadRequest, "failed to get page perparam: "+"the perpage param can not be empty")
 	}
-	perpage, ok := perpageParam.(int)
+	perpage, ok := perpageParam.(float64)
 	if !ok {
 		o.ServeError(http.StatusBadRequest, "the perpage param must be integer")
 	}
@@ -55,14 +55,14 @@ func (o *RaspController) Post() {
 		o.ServeError(http.StatusBadRequest, "perpage must be greater than 0")
 	}
 	raspDataParam := data["data"]
-	if raspDataParam == nil {
+	if raspDataParam == nil || raspDataParam == "" {
 		o.ServeError(http.StatusBadRequest, "the data param can not be empty")
 	}
 	raspData, ok := raspDataParam.(map[string]interface{})
 	if !ok {
 		o.ServeError(http.StatusBadRequest, "the type of data param must be object")
 	}
-	total, rasps, err := models.FindRasp(raspData, page, perpage)
+	total, rasps, err := models.FindRasp(raspData, int(page), int(perpage))
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to get rasp from mongodb: "+err.Error())
 	}
