@@ -51,8 +51,3 @@ func (o *ReportController) Post() {
 	}
 	o.Serve(reportData)
 }
-
-// @router / [get]
-func (o *ReportController) Get() {
-
-}

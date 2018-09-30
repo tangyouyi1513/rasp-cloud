@@ -88,6 +88,11 @@ func init() {
 					&api.TokenController{},
 				),
 			),
+			beego.NSNamespace("/report",
+				beego.NSInclude(
+					&api.ReportController{},
+				),
+			),
 		),
 		beego.NSNamespace("/user", beego.NSInclude(&api.UserController{})),
 

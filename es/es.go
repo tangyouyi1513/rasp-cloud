@@ -43,6 +43,7 @@ func CreateEsIndex(name string, aliasName string) error {
 		return err
 	}
 	if !exists {
+		elastic.NewPutMappingService(ElasticClient).Index()
 		createResult, err := ElasticClient.CreateIndex(name).Do(ctx)
 		if err != nil {
 			return err

@@ -31,12 +31,4 @@ func init() {
 			MethodParams: param.Make(),
 			Params: nil})
 
-	beego.GlobalControllerRouter["rasp-cloud/controllers/agent:ReportController"] = append(beego.GlobalControllerRouter["rasp-cloud/controllers/agent:ReportController"],
-		beego.ControllerComments{
-			Method: "Get",
-			Router: `/`,
-			AllowHTTPMethods: []string{"get"},
-			MethodParams: param.Make(),
-			Params: nil})
-
 }
