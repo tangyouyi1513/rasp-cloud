@@ -67,7 +67,7 @@ func AddApp(app *App) (result *App, err error) {
 	if err != nil {
 		return
 	}
-	err = es.CreateEsIndex(logs.AttackAlarmType+"-"+app.Id, logs.AliasAttackIndexName+"-"+app.Id, logs.AttackEsMapping)
+	err = es.CreateEsIndex(logs.AttackIndexName+"-"+app.Id, logs.AliasAttackIndexName+"-"+app.Id, logs.AttackEsMapping)
 	if err != nil {
 		return
 	}

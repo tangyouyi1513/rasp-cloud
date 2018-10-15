@@ -15,18 +15,18 @@
 package es
 
 import (
-	"github.com/astaxie/beego"
 	"github.com/olivere/elastic"
 	"time"
 	"context"
 	"github.com/astaxie/beego/logs"
-	"rasp-cloud/tools"
 	"strconv"
+	"github.com/astaxie/beego"
+	"rasp-cloud/tools"
 )
 
 var (
 	ElasticClient *elastic.Client
-	ttlIndexes    = make(chan map[string]time.Duration)
+	ttlIndexes    = make(chan map[string]time.Duration, 1)
 )
 
 func init() {
@@ -35,7 +35,7 @@ func init() {
 		tools.Panic("init ES failed: " + err.Error())
 	}
 	ttlIndexes <- make(map[string]time.Duration)
-	startTTL(24 * time.Hour)
+	go startTTL(24 * time.Hour)
 
 	ElasticClient = client
 }
@@ -53,7 +53,7 @@ func startTTL(duration time.Duration) {
 func deleteExpiredData() {
 	defer func() {
 		if r := recover(); r != nil {
-
+			beego.Error(r)
 		}
 	}()
 	ttls := <-ttlIndexes

@@ -35,6 +35,9 @@ var (
 					"enabled": false
 				},
 				"properties": {
+					"@timestamp":{
+                   		"type":"date"
+         			},
 					"request_method": {
 						"type": "keyword",
 						"ignore_above": 50
@@ -90,7 +93,7 @@ var (
 						"ignore_above": 256
 					},
 					"body": {
-						"type": "keyword
+						"type": "keyword"
 					},
 					"app_id": {
 						"type": "keyword",
@@ -125,7 +128,8 @@ var (
 						"type": "short"
 					},
 					"attack_params": {
-						"type": "object"
+						"type": "object",
+						"enabled":"false"
 					},
 					"plugin_message": {
 						"type": "keyword"

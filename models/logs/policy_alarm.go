@@ -35,6 +35,9 @@ var (
 					"enabled": false
 				},
 				"properties": {
+					"@timestamp":{
+						"type":"date"
+         			},
 					"event_type": {
 						"type": "keyword",
 						"ignore_above": 256
@@ -85,6 +88,10 @@ var (
 					"stack_md5": {
 						"type": "keyword",
 						"ignore_above": 64
+					},
+					"param": {
+						"type": "object",
+						"enabled":"false"
 					}
 				}
 			}
