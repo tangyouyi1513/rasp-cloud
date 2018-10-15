@@ -28,15 +28,14 @@ type AttackAlarmController struct {
 
 // @router / [post]
 func (o *AttackAlarmController) Post() {
-	var alarms []interface{}
+	var alarms []map[string]interface{}
 	if err := json.Unmarshal(o.Ctx.Input.RequestBody, &alarms); err != nil {
 		o.ServeError(http.StatusBadRequest, "json format error")
 	}
 	count := 0
 	for _, alarm := range alarms {
-		content, err := json.Marshal(alarm)
+		err := logs.AddAttackAlarm(alarm)
 		if err == nil {
-			logs.AddAttackAlarm(content)
 			count++
 		}
 	}

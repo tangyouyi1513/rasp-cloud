@@ -26,6 +26,7 @@ type Rasp struct {
 	AppId             string `json:"app_id" bson:"app_id"`
 	Version           string `json:"version" bson:"version"`
 	HostName          string `json:"host_name" bson:"host_name"`
+	LocalIp           string `json:"local_ip" bson:"local_ip"`
 	Language          string `json:"language" bson:"language"`
 	LanguageVersion   string `json:"language_version" bson:"language_version"`
 	ServerType        string `json:"server_type" bson:"server_type"`
@@ -62,8 +63,12 @@ func UpsertRaspById(id string, rasp *Rasp) (error) {
 }
 
 func GetRaspByAppId(id string, page int, perpage int) (count int, result []*Rasp, err error) {
-	count, err = mongo.FindAll(raspCollectionName, bson.M{"app_id": id}, result, perpage*(page-1), perpage)
+	count, err = mongo.FindAll(raspCollectionName, bson.M{"app_id": id}, &result, perpage*(page-1), perpage)
 	return
+}
+
+func RemoveRaspByAppId(appId string) (err error) {
+	return mongo.Remove(raspCollectionName, bson.M{"app_id": appId})
 }
 
 func FindRasp(selector map[string]interface{}, page int, perpage int) (count int, result []*Rasp, err error) {
@@ -74,4 +79,8 @@ func FindRasp(selector map[string]interface{}, page int, perpage int) (count int
 func GetRaspById(id string) (rasp *Rasp, err error) {
 	err = mongo.FindOne(raspCollectionName, bson.M{"_id": id}, &rasp)
 	return
+}
+
+func RemoveRaspById(id string) (err error) {
+	return mongo.Remove(raspCollectionName, bson.M{"_id": id})
 }

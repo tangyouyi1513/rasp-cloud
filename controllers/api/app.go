@@ -72,7 +72,7 @@ func (o *AppController) GetAll() {
 
 // @router /rasp [get]
 func (o *AppController) GetRasps() {
-	name := o.GetString("name")
+	name := o.GetString("app_name")
 	if len(name) >= 512 {
 		o.ServeError(http.StatusBadRequest, "the length of app name must be less than 512")
 	}
@@ -159,7 +159,7 @@ func (o *AppController) Post() {
 	if app.Name == "" {
 		o.ServeError(http.StatusBadRequest, "app name can not be empty")
 	}
-	if len(app.Name) >= 512 {
+	if len(app.Name) >= 64 {
 		o.ServeError(http.StatusBadRequest, "the length of app name must be less than 512")
 	}
 	if app.Description != "" && len(app.Description) >= 1024 {
@@ -167,6 +167,8 @@ func (o *AppController) Post() {
 	}
 	if app.Config != nil {
 		validateConfig(app.Config, o)
+		configTime := time.Now().UnixNano()
+		app.ConfigTime = configTime
 	} else {
 		app.Config = make(map[string]interface{})
 	}
@@ -176,6 +178,28 @@ func (o *AppController) Post() {
 		o.ServeError(http.StatusBadRequest, "create app failed: "+err.Error())
 	}
 	o.Serve(app)
+}
+
+// @router /delete [post]
+func (o *AppController) Delete() {
+	var app = &models.App{}
+	err := json.Unmarshal(o.Ctx.Input.RequestBody, app)
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "json format error： "+err.Error())
+	}
+	if app.Id == "" {
+		o.ServeError(http.StatusBadRequest, "the id can not be empty")
+	}
+	err = models.RemoveAppById(app.Id)
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "failed to remove app： "+err.Error())
+	}
+	err = models.RemoveRaspByAppId(app.Id)
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "failed to remove rasp by app_id： "+err.Error())
+	}
+
+	o.ServeWithoutData()
 }
 
 func validateConfig(config map[string]interface{}, controller *AppController) {

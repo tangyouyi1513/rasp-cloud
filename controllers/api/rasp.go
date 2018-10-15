@@ -62,6 +62,10 @@ func (o *RaspController) Post() {
 	if !ok {
 		o.ServeError(http.StatusBadRequest, "the type of data param must be object")
 	}
+	if raspData["id"] != nil {
+		raspData["_id"] = raspData["id"]
+		delete(raspData, "id")
+	}
 	total, rasps, err := models.FindRasp(raspData, int(page), int(perpage))
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to get rasp from mongodb: "+err.Error())
@@ -71,4 +75,21 @@ func (o *RaspController) Post() {
 	result["count"] = len(rasps)
 	result["data"] = rasps
 	o.Serve(result)
+}
+
+// @router /delete [post]
+func (o *RaspController) Delete() {
+	var rasp = &models.Rasp{}
+	err := json.Unmarshal(o.Ctx.Input.RequestBody, rasp)
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "json format error： "+err.Error())
+	}
+	if rasp.Id == "" {
+		o.ServeError(http.StatusBadRequest, "the id can not be empty")
+	}
+	err = models.RemoveRaspById(rasp.Id)
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "failed to remove rasp： "+err.Error())
+	}
+	o.ServeWithoutData()
 }

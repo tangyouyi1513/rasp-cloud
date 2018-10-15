@@ -78,7 +78,7 @@ func UpsertId(collection string, id interface{}, doc interface{}) error {
 func FindAll(collection string, query interface{}, result interface{}, skip int, limit int) (count int, err error) {
 	newSession := NewSession()
 	defer newSession.Close()
-	count, err = newSession.DB(DbName).C(collection).Count()
+	count, err = newSession.DB(DbName).C(collection).Find(query).Count()
 	if err != nil {
 		return
 	}

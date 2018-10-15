@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"rasp-cloud/controllers"
 	"time"
+	"github.com/astaxie/beego/validation"
 )
 
 type RaspController struct {
@@ -44,14 +45,26 @@ func (o *RaspController) Post() {
 	if len(rasp.Id) >= 512 {
 		o.ServeError(http.StatusBadRequest, "the length of rasp id must be less than 512")
 	}
+	if rasp.Version == "" {
+		o.ServeError(http.StatusBadRequest, "rasp_version can not be empty")
+	}
 	if len(rasp.Version) >= 50 {
 		o.ServeError(http.StatusBadRequest, "the length of rasp version must be less than 50")
+	}
+	if rasp.HostName == "" {
+		o.ServeError(http.StatusBadRequest, "rasp hostname can not be empty")
 	}
 	if len(rasp.HostName) >= 1024 {
 		o.ServeError(http.StatusBadRequest, "the length of rasp hostname must be less than 1024")
 	}
+	if rasp.LanguageVersion == "" {
+		o.ServeError(http.StatusBadRequest, "rasp language_version can not be empty")
+	}
 	if len(rasp.LanguageVersion) >= 50 {
 		o.ServeError(http.StatusBadRequest, "the length of rasp language version must be less than 50")
+	}
+	if rasp.Language == "" {
+		o.ServeError(http.StatusBadRequest, "rasp language can not be empty")
 	}
 	if len(rasp.Language) >= 50 {
 		o.ServeError(http.StatusBadRequest, "the length of rasp language must be less than 50")
@@ -61,6 +74,12 @@ func (o *RaspController) Post() {
 	}
 	if len(rasp.ServerVersion) >= 50 {
 		o.ServeError(http.StatusBadRequest, "the length of rasp server version must be less than 50")
+	}
+	if rasp.LocalIp != "" {
+		valid := validation.Validation{}
+		if result := valid.IP(rasp.LocalIp, "IP"); !result.Ok {
+			o.ServeError(http.StatusBadRequest, "rasp primary_ip format error: "+result.Error.Message)
+		}
 	}
 
 	rasp.LastHeartbeatTime = time.Now().Unix()

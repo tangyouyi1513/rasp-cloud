@@ -17,7 +17,34 @@ var (
 	ReportIndexName      = "openrasp-report-data"
 	AliasReportIndexName = "real-openrasp-report-data"
 	reportType           = "doc"
+	ReportEsMapping      = `
+		{
+			"mappings": {
+				"_default_": {
+					"_all": {
+						"enabled": false
+					},
+					"properties": {
+						"time": {
+							"type": "date"
+						},
+						"request_sum": {
+							"type": "long"
+						},
+						"rasp_id": {
+							"type": "keyword",
+							"ignore_above" : 256
+						}
+					}
+				}
+			}
+		}
+	`
 )
+
+func init() {
+	es.RegisterTTL(24*100*time.Hour, AliasReportIndexName+"-*")
+}
 
 func AddReportData(reportData *ReportData, appId string) error {
 	return es.Insert(AliasReportIndexName+"-"+appId, reportType, reportData)
@@ -28,7 +55,7 @@ func GetHistoryRequestSum(startTime int64, endTime int64, interval string, appId
 	defer cancel()
 	sumQuery := elastic.NewBoolQuery()
 	if raspId != "" {
-		sumQuery.Must(elastic.NewMatchQuery("rasp_id", raspId))
+		sumQuery.Must(elastic.NewTermQuery("rasp_id", raspId))
 	}
 	sumQuery.Filter(elastic.NewRangeQuery("time").From(startTime).To(endTime))
 	timeSource := elastic.NewCompositeAggregationDateHistogramValuesSource("group_time", interval).
@@ -45,7 +72,7 @@ func GetHistoryRequestSum(startTime int64, endTime int64, interval string, appId
 	result, err := es.ElasticClient.Search(index).Type(reportType).
 		Query(sumQuery).
 		Aggregation("sum_request", requestSumAggr).
-		Size(10000).
+		Size(0).
 		Do(ctx)
 	if err != nil {
 		return

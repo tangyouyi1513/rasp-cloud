@@ -33,6 +33,14 @@ func init() {
 
 	beego.GlobalControllerRouter["rasp-cloud/controllers/api:AppController"] = append(beego.GlobalControllerRouter["rasp-cloud/controllers/api:AppController"],
 		beego.ControllerComments{
+			Method: "Delete",
+			Router: `/delete`,
+			AllowHTTPMethods: []string{"post"},
+			MethodParams: param.Make(),
+			Params: nil})
+
+	beego.GlobalControllerRouter["rasp-cloud/controllers/api:AppController"] = append(beego.GlobalControllerRouter["rasp-cloud/controllers/api:AppController"],
+		beego.ControllerComments{
 			Method: "GetRasps",
 			Router: `/rasp`,
 			AllowHTTPMethods: []string{"get"},
@@ -65,6 +73,14 @@ func init() {
 
 	beego.GlobalControllerRouter["rasp-cloud/controllers/api:RaspController"] = append(beego.GlobalControllerRouter["rasp-cloud/controllers/api:RaspController"],
 		beego.ControllerComments{
+			Method: "Delete",
+			Router: `/delete`,
+			AllowHTTPMethods: []string{"post"},
+			MethodParams: param.Make(),
+			Params: nil})
+
+	beego.GlobalControllerRouter["rasp-cloud/controllers/api:RaspController"] = append(beego.GlobalControllerRouter["rasp-cloud/controllers/api:RaspController"],
+		beego.ControllerComments{
 			Method: "Post",
 			Router: `/find`,
 			AllowHTTPMethods: []string{"post"},
@@ -73,8 +89,8 @@ func init() {
 
 	beego.GlobalControllerRouter["rasp-cloud/controllers/api:ReportController"] = append(beego.GlobalControllerRouter["rasp-cloud/controllers/api:ReportController"],
 		beego.ControllerComments{
-			Method: "Post",
-			Router: `/`,
+			Method: "Get",
+			Router: `/dashboard`,
 			AllowHTTPMethods: []string{"post"},
 			MethodParams: param.Make(),
 			Params: nil})
@@ -99,7 +115,7 @@ func init() {
 		beego.ControllerComments{
 			Method: "Delete",
 			Router: `/delete`,
-			AllowHTTPMethods: []string{"delete"},
+			AllowHTTPMethods: []string{"post"},
 			MethodParams: param.Make(),
 			Params: nil})
 

@@ -14,6 +14,12 @@
 
 package logs
 
+import (
+	"fmt"
+	"crypto/md5"
+	"encoding/json"
+)
+
 type RaspLog struct {
 	content string
 }
@@ -21,8 +27,83 @@ type RaspLog struct {
 var (
 	PolicyIndexName      = "openrasp-policy-alarm"
 	AliasPolicyIndexName = "real-openrasp-policy-alarm"
+	PolicyEsMapping      = `
+	{
+		"mappings": {
+			"_default_": {
+				"_all": {
+					"enabled": false
+				},
+				"properties": {
+					"event_type": {
+						"type": "keyword",
+						"ignore_above": 256
+					},
+					"server_hostname": {
+						"type": "keyword",
+						"ignore_above": 256
+					},
+					"server_type": {
+						"type": "keyword",
+						"ignore_above": 64
+					},
+					"server_nic": {
+						"type": "nested",
+						"properties": {
+							"name": {
+								"type": "keyword",
+								"ignore_above": 256
+							},
+							"ip": {
+								"type": "ip"
+							}
+						}
+					},
+					"app_id": {
+						"type": "keyword",
+						"ignore_above": 256
+					},
+					"rasp_id": {
+						"type": "keyword",
+						"ignore_above": 256
+					},
+					"local_ip": {
+						"type": "ip"
+					},
+					"event_time": {
+						"type": "date"
+					},
+					"stack_trace": {
+						"type": "keyword"
+					},
+					"policy_id": {
+						"type": "long"
+					},
+					"message": {
+						"type": "keyword"
+					},
+					"stack_md5": {
+						"type": "keyword",
+						"ignore_above": 64
+					}
+				}
+			}
+		}
+	}
+`
+
 )
 
-func AddPolicyAlarm(content []byte) {
-	AddAlarmFunc(PolicyAlarmType, content)
+func AddPolicyAlarm(alarm map[string]interface{}) error {
+	if stack, ok := alarm["stack_trace"]; ok && stack != nil {
+		_, ok = stack.(string)
+		if ok {
+			alarm["stack_md5"] = fmt.Sprintf("%x", md5.Sum([]byte(stack.(string))))
+		}
+	}
+	content, err := json.Marshal(alarm)
+	if err == nil {
+		AddAlarmFunc(AttackAlarmType, content)
+	}
+	return err
 }

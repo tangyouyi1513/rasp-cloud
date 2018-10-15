@@ -21,10 +21,12 @@ import (
 	"context"
 	"github.com/astaxie/beego/logs"
 	"rasp-cloud/tools"
+	"strconv"
 )
 
 var (
 	ElasticClient *elastic.Client
+	ttlIndexes    = make(chan map[string]time.Duration)
 )
 
 func init() {
@@ -32,29 +34,73 @@ func init() {
 	if err != nil {
 		tools.Panic("init ES failed: " + err.Error())
 	}
+	ttlIndexes <- make(map[string]time.Duration)
+	startTTL(24 * time.Hour)
+
 	ElasticClient = client
 }
 
-func CreateEsIndex(name string, aliasName string) error {
-	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(30*time.Second))
+func startTTL(duration time.Duration) {
+	ticker := time.NewTicker(duration)
+	for {
+		select {
+		case <-ticker.C:
+			deleteExpiredData()
+		}
+	}
+}
+
+func deleteExpiredData() {
+	defer func() {
+		if r := recover(); r != nil {
+
+		}
+	}()
+	ttls := <-ttlIndexes
+	defer func() {
+		ttlIndexes <- ttls
+	}()
+	for index, duration := range ttls {
+		expiredTime := strconv.FormatInt((time.Now().UnixNano()-int64(duration))/1000, 10)
+		ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(10*time.Second))
+		_, err := ElasticClient.DeleteByQuery(index).QueryString("@timestamp:<" + expiredTime).Do(ctx)
+		if err != nil {
+
+		}
+		cancel()
+	}
+}
+
+func RegisterTTL(duration time.Duration, index string) {
+	ttls := <-ttlIndexes
+	defer func() {
+		ttlIndexes <- ttls
+	}()
+	ttls[index] = duration
+}
+
+func CreateEsIndex(index string, aliasIndex string, mapping string) error {
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(15*time.Second))
 	defer cancel()
-	exists, err := ElasticClient.IndexExists(name).Do(ctx)
+	exists, err := ElasticClient.IndexExists(index).Do(ctx)
 	if err != nil {
 		return err
 	}
 	if !exists {
-		elastic.NewPutMappingService(ElasticClient).Index()
-		createResult, err := ElasticClient.CreateIndex(name).Do(ctx)
+		createResult, err := ElasticClient.CreateIndex(index).Body(mapping).Do(ctx)
 		if err != nil {
 			return err
 		}
 		logs.Info("create es index: " + createResult.Index)
-		exists, err = ElasticClient.IndexExists(aliasName).Do(ctx)
+		if err != nil {
+			return err
+		}
+		exists, err = ElasticClient.IndexExists(aliasIndex).Do(ctx)
 		if err != nil {
 			return err
 		}
 		if !exists {
-			aliasResult, err := ElasticClient.Alias().Add(name, aliasName).Do(ctx)
+			aliasResult, err := ElasticClient.Alias().Add(index, aliasIndex).Do(ctx)
 			if err != nil {
 				return err
 			}
@@ -64,8 +110,8 @@ func CreateEsIndex(name string, aliasName string) error {
 	return nil
 }
 
-func Insert(index string,docType string, doc interface{}) (err error) {
-	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(20*time.Second))
+func Insert(index string, docType string, doc interface{}) (err error) {
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(10*time.Second))
 	defer cancel()
 	_, err = ElasticClient.Index().Index(index).Type(docType).BodyJson(doc).Do(ctx)
 	return

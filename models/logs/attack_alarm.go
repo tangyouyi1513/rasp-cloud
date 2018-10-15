@@ -14,6 +14,12 @@
 
 package logs
 
+import (
+	"encoding/json"
+	"crypto/md5"
+	"fmt"
+)
+
 type AttackAlarm struct {
 	content string
 }
@@ -21,8 +27,126 @@ type AttackAlarm struct {
 var (
 	AttackIndexName      = "openrasp-attack-alarm"
 	AliasAttackIndexName = "real-openrasp-attack-alarm"
+	AttackEsMapping      = `
+	{
+		"mappings": {
+			"_default_": {
+				"_all": {
+					"enabled": false
+				},
+				"properties": {
+					"request_method": {
+						"type": "keyword",
+						"ignore_above": 50
+					},
+					"target": {
+						"type": "keyword",
+						"ignore_above": 256
+					},
+					"server_ip": {
+						"type": "ip"
+					},
+					"referer": {
+						"type": "keyword",
+						"ignore_above": 256
+					},
+					"user_agent": {
+						"type": "keyword",
+						"ignore_above": 256
+					},
+					"attack_source": {
+						"type": "ip"
+					},
+					"path": {
+						"type": "keyword",
+						"ignore_above": 256
+					},
+					"url": {
+						"type": "keyword",
+						"ignore_above": 256
+					},
+					"event_type": {
+						"type": "keyword",
+						"ignore_above": 256
+					},
+					"server_hostname": {
+						"type": "keyword",
+						"ignore_above": 256
+					},
+					"stack_md5": {
+						"type": "keyword",
+						"ignore_above": 64
+					},
+					"server_type": {
+						"type": "keyword",
+						"ignore_above": 256
+					},
+					"server_version": {
+						"type": "keyword",
+						"ignore_above": 256
+					},
+					"request_id": {
+						"type": "keyword",
+						"ignore_above": 256
+					},
+					"body": {
+						"type": "keyword
+					},
+					"app_id": {
+						"type": "keyword",
+						"ignore_above": 256
+					},
+					"rasp_id": {
+						"type": "keyword",
+						"ignore_above": 256
+					},
+					"local_ip": {
+						"type": "ip"
+					},
+					"event_time": {
+						"type": "date"
+					},
+					"stack_trace": {
+						"type": "keyword"
+					},
+					"intercept_state": {
+						"type": "keyword",
+						"ignore_above": 64
+					},
+					"attack_type": {
+						"type": "keyword",
+						"ignore_above": 256
+					},
+					"plugin_name": {
+						"type": "keyword",
+						"ignore_above": 256
+					},
+					"plugin_confidence": {
+						"type": "short"
+					},
+					"attack_params": {
+						"type": "object"
+					},
+					"plugin_message": {
+						"type": "keyword"
+					}
+				}
+			}
+		}
+	}
+	`
 )
 
-func AddAttackAlarm(content []byte) {
-	AddAlarmFunc(AttackAlarmType, content)
+func AddAttackAlarm(alarm map[string]interface{}) error {
+	if stack, ok := alarm["stack_trace"]; ok && stack != nil {
+		_, ok = stack.(string)
+		if ok {
+			alarm["stack_md5"] = fmt.Sprintf("%x", md5.Sum([]byte(stack.(string))))
+		}
+	}
+	content, err := json.Marshal(alarm)
+	if err == nil {
+		AddAlarmFunc(AttackAlarmType, content)
+	}
+	return err
 }

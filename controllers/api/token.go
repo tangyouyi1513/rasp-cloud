@@ -72,13 +72,17 @@ func (o *TokenController) Post() {
 	o.Serve(token)
 }
 
-// @router /delete [delete]
+// @router /delete [post]
 func (o *TokenController) Delete() {
-	tokenId := o.GetString("token")
-	if len(tokenId) == 0 {
+	var token *models.Token
+	err := json.Unmarshal(o.Ctx.Input.RequestBody, &token)
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "json format error： "+err.Error())
+	}
+	if len(token.Token) == 0 {
 		o.ServeError(http.StatusBadRequest, "the token param can not be empty")
 	}
-	token, err := models.RemoveToken(tokenId)
+	token, err = models.RemoveToken(token.Token)
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to remove token: "+err.Error())
 	}

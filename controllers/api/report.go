@@ -16,8 +16,8 @@ var (
 	intervals = [...]string{"hour", "day", "month"}
 )
 
-// @router / [post]
-func (o *ReportController) Post() {
+// @router /dashboard [post]
+func (o *ReportController) Get() {
 	var query map[string]interface{}
 	err := json.Unmarshal(o.Ctx.Input.RequestBody, &query)
 	if err != nil {

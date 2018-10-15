@@ -63,19 +63,20 @@ func AddApp(app *App) (result *App, err error) {
 	if app.Id == "" {
 		app.Id = generateAppId(app)
 	}
+	err = es.CreateEsIndex(logs.PolicyIndexName+"-"+app.Id, logs.AliasPolicyIndexName+"-"+app.Id, logs.PolicyEsMapping)
+	if err != nil {
+		return
+	}
+	err = es.CreateEsIndex(logs.AttackAlarmType+"-"+app.Id, logs.AliasAttackIndexName+"-"+app.Id, logs.AttackEsMapping)
+	if err != nil {
+		return
+	}
+	err = es.CreateEsIndex(ReportIndexName+"-"+app.Id, AliasReportIndexName+"-"+app.Id, ReportEsMapping)
+	if err != nil {
+		return
+	}
+	// ES must be created before mongo
 	err = mongo.UpsertId(appCollectionName, app.Id, app)
-	if err != nil {
-		return
-	}
-	err = es.CreateEsIndex(logs.PolicyIndexName+"-"+app.Id, logs.AliasPolicyIndexName+"-"+app.Id)
-	if err != nil {
-		return
-	}
-	err = es.CreateEsIndex(logs.AttackAlarmType+"-"+app.Id, logs.AliasAttackIndexName+"-"+app.Id)
-	if err != nil {
-		return
-	}
-	err = es.CreateEsIndex(ReportIndexName+"-"+app.Id, AliasReportIndexName+"-"+app.Id)
 	if err != nil {
 		return
 	}
@@ -105,4 +106,8 @@ func GetAppById(id string) (app *App, err error) {
 
 func UpdateAppById(id string, app *App) (err error) {
 	return mongo.UpdateId(appCollectionName, id, app)
+}
+
+func RemoveAppById(id string) (err error) {
+	return mongo.Remove(appCollectionName, bson.M{"_id": id})
 }

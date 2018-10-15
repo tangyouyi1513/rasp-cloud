@@ -20,6 +20,8 @@ import (
 	"github.com/astaxie/beego/logs"
 	"os"
 	"path"
+	"rasp-cloud/es"
+	"time"
 )
 
 var (
@@ -30,6 +32,8 @@ var (
 )
 
 func init() {
+	es.RegisterTTL(24*365*time.Hour, AliasAttackIndexName+"-*")
+	es.RegisterTTL(24*365*time.Hour, AliasPolicyIndexName+"-*")
 	if beego.AppConfig.String("RaspLogMode") == "logstash" ||
 		beego.AppConfig.String("RaspLogMode") == "" {
 		AddAlarmFunc = AddLogWithLogstash
@@ -66,7 +70,10 @@ func initRaspLogger(dirName string, fileName string) *logs.BeeLogger {
 
 func AddLogWithLogstash(alarmType string, content []byte) {
 	if logger, ok := raspLoggers[alarmType]; ok && logger != nil {
-		logger.Write(content)
+		_, err := logger.Write(content)
+		if err != nil {
+			logs.Error("failed to write rasp log: " + err.Error())
+		}
 	} else {
 		logs.Error("failed to write rasp log ,unrecognized log type: " + alarmType)
 	}

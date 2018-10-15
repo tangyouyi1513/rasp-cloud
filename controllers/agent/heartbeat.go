@@ -79,20 +79,24 @@ func (o *HeartbeatController) Post() {
 		o.ServeError(http.StatusBadRequest, "can not get the app： "+app.Id)
 	}
 
-	var result = make(map[string]interface{})
+	result := make(map[string]interface{})
+	isUpdate := false
 	// 处理插件
 	latestPlugin, err := models.GetLatestPlugin()
 	if err != nil && err != mgo.ErrNotFound {
 		o.ServeError(http.StatusBadRequest, "failed to get latest plugin： "+err.Error())
 	}
 	if latestPlugin != nil && pluginVersion.(string) < latestPlugin.Version {
-		result["plugin"] = latestPlugin
+		isUpdate = true
 	}
-	// 处理配置
 	if app.ConfigTime > 0 && app.ConfigTime > int64(configTime) {
+		isUpdate = true
+	}
+
+	if isUpdate {
+		result["plugin"] = latestPlugin
 		result["config_time"] = app.ConfigTime
 		result["config"] = app.Config
 	}
-
 	o.Serve(result)
 }
