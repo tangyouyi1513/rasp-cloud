@@ -37,34 +37,34 @@ func (o *RaspController) Post() {
 		o.ServeError(http.StatusBadRequest, "json format error： "+err.Error())
 	}
 	if rasp.Id == "" {
-		o.ServeError(http.StatusBadRequest, "rasp id can not be empty")
+		o.ServeError(http.StatusBadRequest, "rasp id cannot be empty")
 	}
 	if len(rasp.Id) < 16 {
-		o.ServeError(http.StatusBadRequest, "rasp id can not be less than 16")
+		o.ServeError(http.StatusBadRequest, "rasp id cannot be less than 16")
 	}
 	if len(rasp.Id) >= 512 {
 		o.ServeError(http.StatusBadRequest, "the length of rasp id must be less than 512")
 	}
 	if rasp.Version == "" {
-		o.ServeError(http.StatusBadRequest, "rasp_version can not be empty")
+		o.ServeError(http.StatusBadRequest, "rasp_version cannot be empty")
 	}
 	if len(rasp.Version) >= 50 {
 		o.ServeError(http.StatusBadRequest, "the length of rasp version must be less than 50")
 	}
 	if rasp.HostName == "" {
-		o.ServeError(http.StatusBadRequest, "rasp hostname can not be empty")
+		o.ServeError(http.StatusBadRequest, "rasp hostname cannot be empty")
 	}
 	if len(rasp.HostName) >= 1024 {
 		o.ServeError(http.StatusBadRequest, "the length of rasp hostname must be less than 1024")
 	}
 	if rasp.LanguageVersion == "" {
-		o.ServeError(http.StatusBadRequest, "rasp language_version can not be empty")
+		o.ServeError(http.StatusBadRequest, "rasp language_version cannot be empty")
 	}
 	if len(rasp.LanguageVersion) >= 50 {
 		o.ServeError(http.StatusBadRequest, "the length of rasp language version must be less than 50")
 	}
 	if rasp.Language == "" {
-		o.ServeError(http.StatusBadRequest, "rasp language can not be empty")
+		o.ServeError(http.StatusBadRequest, "rasp language cannot be empty")
 	}
 	if len(rasp.Language) >= 50 {
 		o.ServeError(http.StatusBadRequest, "the length of rasp language must be less than 50")

@@ -20,82 +20,89 @@ import (
 	"rasp-cloud/controllers/agent/agent_logs"
 	"rasp-cloud/controllers/api"
 	"rasp-cloud/controllers/api/fore_logs"
+	"rasp-cloud/tools"
 )
 
-func init() {
-	ns := beego.NewNamespace("/v1",
-		beego.NSNamespace("/agent",
-
-			beego.NSNamespace("/heartbeat",
+func InitRouter(startType string) {
+	agentNS := beego.NewNamespace("/agent",
+		beego.NSNamespace("/heartbeat",
+			beego.NSInclude(
+				&agent.HeartbeatController{},
+			),
+		),
+		beego.NSNamespace("/log",
+			beego.NSNamespace("/attack",
 				beego.NSInclude(
-					&agent.HeartbeatController{},
+					&agent_logs.AttackAlarmController{},
 				),
 			),
-			beego.NSNamespace("/log",
-				beego.NSNamespace("/attack",
-					beego.NSInclude(
-						&agent_logs.AttackAlarmController{},
-					),
-				),
-				beego.NSNamespace("/policy",
-					beego.NSInclude(
-						&agent_logs.PolicyAlarmController{},
-					),
-				),
-			),
-			beego.NSNamespace("/rasp",
+			beego.NSNamespace("/policy",
 				beego.NSInclude(
-					&agent.RaspController{},
-				),
-			),
-			beego.NSNamespace("/report",
-				beego.NSInclude(
-					&agent.ReportController{},
+					&agent_logs.PolicyAlarmController{},
 				),
 			),
 		),
-		beego.NSNamespace("/api",
-
-			beego.NSNamespace("/plugin",
-				beego.NSInclude(
-					&api.PluginController{},
-				),
-			),
-			beego.NSNamespace("/log",
-				beego.NSNamespace("/attack",
-					beego.NSInclude(
-						&fore_logs.AttackAlarmController{},
-					),
-				),
-				beego.NSNamespace("/policy",
-					beego.NSInclude(
-						&fore_logs.PolicyAlarmController{},
-					),
-				),
-			),
-			beego.NSNamespace("/app",
-				beego.NSInclude(
-					&api.AppController{},
-				),
-			),
-			beego.NSNamespace("/rasp",
-				beego.NSInclude(
-					&api.RaspController{},
-				),
-			),
-			beego.NSNamespace("/token",
-				beego.NSInclude(
-					&api.TokenController{},
-				),
-			),
-			beego.NSNamespace("/report",
-				beego.NSInclude(
-					&api.ReportController{},
-				),
+		beego.NSNamespace("/rasp",
+			beego.NSInclude(
+				&agent.RaspController{},
 			),
 		),
-		beego.NSNamespace("/user", beego.NSInclude(&api.UserController{})),
-
+		beego.NSNamespace("/report",
+			beego.NSInclude(
+				&agent.ReportController{},
+			),
+		),
 	)
+	foregroudNS := beego.NewNamespace("/api",
+
+		beego.NSNamespace("/plugin",
+			beego.NSInclude(
+				&api.PluginController{},
+			),
+		),
+		beego.NSNamespace("/log",
+			beego.NSNamespace("/attack",
+				beego.NSInclude(
+					&fore_logs.AttackAlarmController{},
+				),
+			),
+			beego.NSNamespace("/policy",
+				beego.NSInclude(
+					&fore_logs.PolicyAlarmController{},
+				),
+			),
+		),
+		beego.NSNamespace("/app",
+			beego.NSInclude(
+				&api.AppController{},
+			),
+		),
+		beego.NSNamespace("/rasp",
+			beego.NSInclude(
+				&api.RaspController{},
+			),
+		),
+		beego.NSNamespace("/token",
+			beego.NSInclude(
+				&api.TokenController{},
+			),
+		),
+		beego.NSNamespace("/report",
+			beego.NSInclude(
+				&api.ReportController{},
+			),
+		),
+	)
+	userNS := beego.NewNamespace("/user", beego.NSInclude(&api.UserController{}))
+	ns := beego.NewNamespace("/v1")
+	if startType == "foreground" {
+		ns.Namespace(foregroudNS, userNS)
+	} else if startType == "agent" {
+		ns.Namespace(agentNS)
+	} else if startType == "" {
+		ns.Namespace(foregroudNS, agentNS, userNS)
+	} else {
+		tools.Panic("The start type is not supported: " + startType)
+	}
 	beego.AddNamespace(ns)
 }

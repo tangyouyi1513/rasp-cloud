@@ -23,7 +23,6 @@ import (
 	"rasp-cloud/controllers"
 	"io/ioutil"
 	"io"
-	"gopkg.in/mgo.v2"
 )
 
 // Operations about plugin
@@ -33,6 +32,10 @@ type PluginController struct {
 
 // @router /upload [post]
 func (o *PluginController) Upload() {
+	appId := o.GetString("app_id")
+	if appId == "" {
+		o.ServeError(http.StatusBadRequest, "app_id can not be empty")
+	}
 	file, info, err := o.GetFile("plugin")
 	if file == nil {
 		o.ServeError(http.StatusBadRequest, "must have the plugin parameter")
@@ -42,7 +45,7 @@ func (o *PluginController) Upload() {
 		o.ServeError(http.StatusBadRequest, "parse file error: "+err.Error())
 	}
 	if info.Size == 0 {
-		o.ServeError(http.StatusBadRequest, "upload file can not be empty")
+		o.ServeError(http.StatusBadRequest, "upload file cannot be empty")
 	}
 	fileName := info.Filename
 	if len(fileName) <= 0 || len(fileName) > 10 {
@@ -64,20 +67,20 @@ func (o *PluginController) Upload() {
 		o.ServeError(http.StatusBadRequest, "failed to find the plugin version: "+err.Error())
 	}
 
-	plugin, err := models.GetLatestPlugin()
-	if err != nil && err != mgo.ErrNotFound {
-		o.ServeError(http.StatusBadRequest, "failed to get latest plugin: "+err.Error())
-	}
-	if plugin != nil && plugin.Version >= newVersion {
-		o.ServeError(http.StatusBadRequest, "the file version must be larger than the current version")
-	}
+	//plugin, err := models.GetLatestPlugin()
+	//if err != nil && err != mgo.ErrNotFound {
+	//	o.ServeError(http.StatusBadRequest, "failed to get latest plugin: "+err.Error())
+	//}
+	//if plugin != nil && plugin.Version >= newVersion {
+	//	o.ServeError(http.StatusBadRequest, "the file version must be larger than the current version")
+	//}
 
 	file.Seek(0, io.SeekStart)
 	content, err := ioutil.ReadAll(file)
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to read upload file: "+err.Error())
 	}
-	latestPlugin, err := models.AddPlugin(newVersion, content)
+	latestPlugin, err := models.AddPlugin(newVersion, content, appId)
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to add plugin to mongodb: "+err.Error())
 	}
@@ -85,13 +88,12 @@ func (o *PluginController) Upload() {
 
 }
 
-// 如果不加参数返回，最新插件
-// 如果加 version 插件返回响应版本的插件
 // @router / [get]
 func (o *PluginController) Get() {
+	appId := o.GetString("app_id")
 	version := o.GetString("version")
 	if len(version) == 0 {
-		plugins, err := models.GetAllPlugin()
+		plugins, err := models.GetAllPlugin(appId)
 		if err != nil {
 			o.ServeError(http.StatusBadRequest, "failed to get latest plugin from mongodb: "+err.Error())
 		}
@@ -101,7 +103,7 @@ func (o *PluginController) Get() {
 			o.Serve(plugins)
 		}
 	} else {
-		plugin, err := models.GetPluginByVersion(version)
+		plugin, err := models.GetPluginByVersion(version, appId)
 		if err != nil {
 			o.ServeError(http.StatusBadRequest, "failed to get plugin from mongodb: "+err.Error())
 		}
@@ -113,16 +115,8 @@ func (o *PluginController) Get() {
 	}
 }
 
-// 获取所有历史版本插件
-// @router /latest [get]
-func (o *PluginController) GetLatest() {
-	plugin, err := models.GetLatestPlugin()
-	if err != nil {
-		o.ServeError(http.StatusBadRequest, "failed to get latest plugin from mongodb: "+err.Error())
-	}
-	if plugin == nil {
-		o.Serve(make(map[string]interface{}))
-	} else {
-		o.Serve(plugin)
-	}
+// @router /selected [get]
+func (o *PluginController) GetSelectedPlugin() {
+	//appId := o.GetString("app_id")
+
 }

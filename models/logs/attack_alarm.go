@@ -18,6 +18,10 @@ import (
 	"encoding/json"
 	"crypto/md5"
 	"fmt"
+	"rasp-cloud/es"
+	"github.com/olivere/elastic"
+	"time"
+	"context"
 )
 
 type AttackAlarm struct {
@@ -55,7 +59,7 @@ var (
 					},
 					"user_agent": {
 						"type": "keyword",
-						"ignore_above": 256
+						"ignore_above": 512
 					},
 					"attack_source": {
 						"type": "ip"
@@ -120,6 +124,10 @@ var (
 						"type": "keyword",
 						"ignore_above": 256
 					},
+					"plugin_algorithm":{
+						"type": "keyword",
+						"ignore_above": 256
+					},
 					"plugin_name": {
 						"type": "keyword",
 						"ignore_above": 256
@@ -153,4 +161,91 @@ func AddAttackAlarm(alarm map[string]interface{}) error {
 		AddAlarmFunc(AttackAlarmType, content)
 	}
 	return err
+}
+
+func AggregationAttackWithTime(startTime int64, endTime int64, interval string, timeZone string,
+	appId string) ([]map[string]interface{}, error) {
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(10*time.Second))
+	defer cancel()
+	timeAggr := elastic.NewDateHistogramAggregation().Field("event_time").TimeZone(timeZone).Interval(interval)
+	timeQuery := elastic.NewRangeQuery("event_time").Gte(startTime).Lte(endTime)
+	aggrName := "aggr_time"
+	aggrResult, err := es.ElasticClient.Search(AliasAttackIndexName + "-" + appId).
+		Query(timeQuery).
+		Aggregation(aggrName, timeAggr).
+		Size(0).
+		Do(ctx)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]map[string]interface{}, 0)
+	if aggrResult != nil && aggrResult.Aggregations != nil {
+		if terms, ok := aggrResult.Aggregations.Terms(aggrName); ok && terms.Buckets != nil {
+			result = make([]map[string]interface{}, len(terms.Buckets))
+			for index, item := range terms.Buckets {
+				result[index] = make(map[string]interface{})
+				result[index]["start_time"] = item.Key
+				result[index]["count"] = item.DocCount
+			}
+		}
+	}
+	return result, nil
+}
+
+func AggregationAttackWithUserAgent(startTime int64, endTime int64, size int,
+	appId string) ([]map[string]interface{}, error) {
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(10*time.Second))
+	defer cancel()
+	uaAggr := elastic.NewTermsAggregation().Field("user_agent").Size(size).OrderByCount(false)
+	timeQuery := elastic.NewRangeQuery("event_time").Gte(startTime).Lte(endTime)
+	aggrName := "aggr_ua"
+	aggrResult, err := es.ElasticClient.Search(AliasAttackIndexName + "-" + appId).
+		Query(timeQuery).
+		Aggregation(aggrName, uaAggr).
+		Size(0).
+		Do(ctx)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]map[string]interface{}, 0)
+	if aggrResult != nil && aggrResult.Aggregations != nil {
+		if terms, ok := aggrResult.Aggregations.Terms(aggrName); ok && terms.Buckets != nil {
+			result = make([]map[string]interface{}, len(terms.Buckets))
+			for index, item := range terms.Buckets {
+				result[index] = make(map[string]interface{})
+				result[index]["type"] = item.Key
+				result[index]["count"] = item.DocCount
+			}
+		}
+	}
+	return result, nil
+}
+
+func AggregationAttackWithType(startTime int64, endTime int64, size int,
+	appId string) ([]map[string]interface{}, error) {
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(10*time.Second))
+	defer cancel()
+	typeAggr := elastic.NewTermsAggregation().Field("attack_type").Size(size).OrderByCount(false)
+	timeQuery := elastic.NewRangeQuery("event_time").Gte(startTime).Lte(endTime)
+	aggrName := "aggr_type"
+	aggrResult, err := es.ElasticClient.Search(AliasAttackIndexName + "-" + appId).
+		Query(timeQuery).
+		Aggregation(aggrName, typeAggr).
+		Size(0).
+		Do(ctx)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]map[string]interface{}, 0)
+	if aggrResult != nil && aggrResult.Aggregations != nil {
+		if terms, ok := aggrResult.Aggregations.Terms(aggrName); ok && terms.Buckets != nil {
+			result = make([]map[string]interface{}, len(terms.Buckets))
+			for index, item := range terms.Buckets {
+				result[index] = make(map[string]interface{})
+				result[index]["type"] = item.Key
+				result[index]["count"] = item.DocCount
+			}
+		}
+	}
+	return result, nil
 }

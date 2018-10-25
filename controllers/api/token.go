@@ -80,7 +80,7 @@ func (o *TokenController) Delete() {
 		o.ServeError(http.StatusBadRequest, "json format error： "+err.Error())
 	}
 	if len(token.Token) == 0 {
-		o.ServeError(http.StatusBadRequest, "the token param can not be empty")
+		o.ServeError(http.StatusBadRequest, "the token param cannot be empty")
 	}
 	token, err = models.RemoveToken(token.Token)
 	if err != nil {

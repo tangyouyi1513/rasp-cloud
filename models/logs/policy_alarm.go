@@ -98,7 +98,6 @@ var (
 		}
 	}
 `
-
 )
 
 func AddPolicyAlarm(alarm map[string]interface{}) error {

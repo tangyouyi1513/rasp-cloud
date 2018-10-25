@@ -37,7 +37,7 @@ func (o *HeartbeatController) Post() {
 	}
 	raspIdParam := heartbeat["rasp_id"]
 	if raspIdParam == nil {
-		o.ServeError(http.StatusBadRequest, "rasp_id can not be empty")
+		o.ServeError(http.StatusBadRequest, "rasp_id cannot be empty")
 	}
 	raspId, ok := raspIdParam.(string)
 	if !ok {
@@ -48,22 +48,30 @@ func (o *HeartbeatController) Post() {
 		o.ServeError(http.StatusBadRequest, "failed to get rasp: "+err.Error())
 	}
 	rasp.LastHeartbeatTime = time.Now().Unix()
-	err = models.UpsertRaspById(raspId, rasp)
-	if err != nil {
-		o.ServeError(http.StatusBadRequest, "failed to upsert rasp: "+err.Error())
-	}
-
 	pluginVersion := heartbeat["plugin_version"]
 	if pluginVersion == nil {
-		o.ServeError(http.StatusBadRequest, "plugin_version can not be empty")
+		o.ServeError(http.StatusBadRequest, "plugin_version cannot be empty")
 	}
 	pluginVersion, ok = pluginVersion.(string)
 	if !ok {
 		o.ServeError(http.StatusBadRequest, "the type of plugin_version must be string")
 	}
+	rasp.PluginVersion = pluginVersion.(string)
+	pluginMd5 := heartbeat["plugin_md5"]
+	if pluginVersion == nil {
+		o.ServeError(http.StatusBadRequest, "plugin_md5 cannot be empty")
+	}
+	pluginMd5, ok = pluginMd5.(string)
+	if !ok {
+		o.ServeError(http.StatusBadRequest, "the type of plugin_md5 must be string")
+	}
+	err = models.UpsertRaspById(raspId, rasp)
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "failed to update rasp: "+err.Error())
+	}
 	configTimeParam := heartbeat["config_time"]
 	if configTimeParam == nil {
-		o.ServeError(http.StatusBadRequest, "config_time can not be empty")
+		o.ServeError(http.StatusBadRequest, "config_time cannot be empty")
 	}
 	configTime, ok := configTimeParam.(float64)
 	if !ok {
@@ -73,20 +81,20 @@ func (o *HeartbeatController) Post() {
 	appId := o.Ctx.Input.Header("X-OpenRASP-AppID")
 	app, err := models.GetAppById(appId)
 	if err != nil {
-		o.ServeError(http.StatusBadRequest, "can not get the app: "+err.Error())
+		o.ServeError(http.StatusBadRequest, "cannot get the app: "+err.Error())
 	}
 	if app == nil {
-		o.ServeError(http.StatusBadRequest, "can not get the app： "+app.Id)
+		o.ServeError(http.StatusBadRequest, "cannot get the app： "+app.Id)
 	}
 
 	result := make(map[string]interface{})
 	isUpdate := false
 	// 处理插件
-	latestPlugin, err := models.GetLatestPlugin()
+	selectedPlugin, err := models.GetSelectedPlugin(appId)
 	if err != nil && err != mgo.ErrNotFound {
 		o.ServeError(http.StatusBadRequest, "failed to get latest plugin： "+err.Error())
 	}
-	if latestPlugin != nil && pluginVersion.(string) < latestPlugin.Version {
+	if selectedPlugin != nil && pluginMd5.(string) != selectedPlugin.Md5 {
 		isUpdate = true
 	}
 	if app.ConfigTime > 0 && app.ConfigTime > int64(configTime) {
@@ -94,9 +102,9 @@ func (o *HeartbeatController) Post() {
 	}
 
 	if isUpdate {
-		result["plugin"] = latestPlugin
+		result["plugin"] = selectedPlugin
 		result["config_time"] = app.ConfigTime
-		result["config"] = app.Config
+		result["config"] = app.RaspConfig
 	}
 	o.Serve(result)
 }

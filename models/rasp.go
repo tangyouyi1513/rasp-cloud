@@ -32,6 +32,7 @@ type Rasp struct {
 	ServerType        string `json:"server_type" bson:"server_type"`
 	ServerVersion     string `json:"server_version" bson:"server_version"`
 	RaspHome          string `json:"rasp_home" bson:"rasp_home"`
+	PluginVersion     string `json:"plugin_version" bson:"plugin_version"`
 	LastHeartbeatTime int64  `json:"last_heartbeat_time" bson:"last_heartbeat_time"`
 }
 

@@ -86,6 +86,24 @@ func FindAll(collection string, query interface{}, result interface{}, skip int,
 	return
 }
 
+func FindAllWithSelect(collection string, query interface{}, result interface{}, selector interface{},
+	skip int, limit int) (count int, err error) {
+	newSession := NewSession()
+	defer newSession.Close()
+	count, err = newSession.DB(DbName).C(collection).Find(query).Count()
+	if err != nil {
+		return
+	}
+	err = newSession.DB(DbName).C(collection).Find(query).Select(selector).Skip(skip).Limit(limit).All(result)
+	return
+}
+
+func FindIdWithSelect(collection string, id string, result interface{}, selector interface{}) error {
+	newSession := NewSession()
+	defer newSession.Close()
+	return newSession.DB(DbName).C(collection).FindId(id).Select(selector).One(result)
+}
+
 func FindId(collection string, id string, result interface{}) error {
 	newSession := NewSession()
 	defer newSession.Close()

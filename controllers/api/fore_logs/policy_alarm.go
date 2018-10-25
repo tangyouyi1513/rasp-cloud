@@ -16,6 +16,10 @@ package fore_logs
 
 import (
 	"rasp-cloud/controllers"
+	"rasp-cloud/models/logs"
+	"encoding/json"
+	"rasp-cloud/models"
+	"net/http"
 )
 
 // Operations about policy alarm message
@@ -23,4 +27,43 @@ type PolicyAlarmController struct {
 	controllers.BaseController
 }
 
-
+// @router /search [post]
+func (o *PolicyAlarmController) Search() {
+	var param = &logs.SearchLogParam{}
+	err := json.Unmarshal(o.Ctx.Input.RequestBody, &param)
+	if param.AppId != "" {
+		_, err := models.GetAppById(param.AppId)
+		if err != nil {
+			o.ServeError(http.StatusBadRequest, "cannot get the app: "+param.AppId)
+		}
+	} else {
+		param.AppId = "*"
+	}
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "json decode error： "+err.Error())
+	}
+	if param.StartTime <= 0 {
+		o.ServeError(http.StatusBadRequest, "start_time must be greater than 0")
+	}
+	if param.EndTime <= 0 {
+		o.ServeError(http.StatusBadRequest, "end_time must be greater than 0")
+	}
+	if param.StartTime > param.EndTime {
+		o.ServeError(http.StatusBadRequest, "start_time cannot be greater than end_time")
+	}
+	if param.Page <= 0 {
+		o.ServeError(http.StatusBadRequest, "page must be greater than 0")
+	}
+	if param.Perpage <= 0 {
+		o.ServeError(http.StatusBadRequest, "perpage must be greater than 0")
+	}
+	total, result, err := logs.SearchLogs(param.StartTime, param.EndTime, param.Data, "event_time",
+		param.Page, param.Perpage, false, logs.AliasPolicyIndexName+"-"+param.AppId)
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "failed to search data from es: "+err.Error())
+	}
+	o.Serve(map[string]interface{}{
+		"total": total,
+		"data":  result,
+	})
+}

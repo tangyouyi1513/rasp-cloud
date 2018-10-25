@@ -25,7 +25,7 @@ type ReportData struct {
 	RaspId     string `json:"rasp_id"`
 	Time       int64  `json:"time"`
 	RequestSum int64  `json:"request_sum"`
-	InsertTime  int64  `json:"@timestamp"`
+	InsertTime int64  `json:"@timestamp"`
 }
 
 var (
@@ -65,40 +65,35 @@ func init() {
 }
 
 func AddReportData(reportData *ReportData, appId string) error {
-	reportData.InsertTime = time.Now().UnixNano()/1000
+	reportData.InsertTime = time.Now().Unix() * 1000
 	return es.Insert(AliasReportIndexName+"-"+appId, reportType, reportData)
 }
 
-func GetHistoryRequestSum(startTime int64, endTime int64, interval string, appId string, raspId string) (err error) {
-	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(20*time.Second))
+func GetHistoryRequestSum(startTime int64, endTime int64, interval string, timeZone string, appId string,
+	raspId string) (error, []map[string]interface{}) {
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(10*time.Second))
 	defer cancel()
-	sumQuery := elastic.NewBoolQuery()
-	if raspId != "" {
-		sumQuery.Must(elastic.NewTermQuery("rasp_id", raspId))
-	}
-	sumQuery.Filter(elastic.NewRangeQuery("time").From(startTime).To(endTime))
-	timeSource := elastic.NewCompositeAggregationDateHistogramValuesSource("group_time", interval).
-		Field("time")
-	sumAggr := elastic.NewSumAggregation().Field("request_sum")
-	requestSumAggr := elastic.NewCompositeAggregation().SubAggregation("sum_request", sumAggr).
-		Size(10000).Sources(timeSource)
-	index := AliasReportIndexName
-	if appId == "" {
-		index += "-*"
-	} else {
-		index += "-" + appId
-	}
-	result, err := es.ElasticClient.Search(index).Type(reportType).
-		Query(sumQuery).
-		Aggregation("sum_request", requestSumAggr).
+	timeAggr := elastic.NewDateHistogramAggregation().Field("time").TimeZone(timeZone).Interval(interval)
+	timeQuery := elastic.NewRangeQuery("time").Gte(startTime).Lte(endTime)
+	aggrName := "aggr_time"
+	aggrResult, err := es.ElasticClient.Search(AliasReportIndexName + "-" + appId).
+		Query(timeQuery).
+		Aggregation(aggrName, timeAggr).
 		Size(0).
 		Do(ctx)
 	if err != nil {
-		return
+		return err, nil
 	}
-	if result != nil {
-
-		//fmt.Printf("%+v", result.Hits.Hits[0])
+	result := make([]map[string]interface{}, 0)
+	if aggrResult != nil && aggrResult.Aggregations != nil {
+		if terms, ok := aggrResult.Aggregations.Terms(aggrName); ok && terms.Buckets != nil {
+			result = make([]map[string]interface{}, len(terms.Buckets))
+			for index, item := range terms.Buckets {
+				result[index] = make(map[string]interface{})
+				result[index]["start_time"] = item.Key
+				result[index]["request_sum"] = item.DocCount
+			}
+		}
 	}
-	return
+	return nil, result
 }

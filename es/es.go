@@ -61,7 +61,7 @@ func deleteExpiredData() {
 		ttlIndexes <- ttls
 	}()
 	for index, duration := range ttls {
-		expiredTime := strconv.FormatInt((time.Now().UnixNano()-int64(duration))/1000, 10)
+		expiredTime := strconv.FormatInt((time.Now().UnixNano()-int64(duration))/1000000, 10)
 		ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(10*time.Second))
 		_, err := ElasticClient.DeleteByQuery(index).QueryString("@timestamp:<" + expiredTime).Do(ctx)
 		if err != nil {
@@ -100,11 +100,11 @@ func CreateEsIndex(index string, aliasIndex string, mapping string) error {
 			return err
 		}
 		if !exists {
-			aliasResult, err := ElasticClient.Alias().Add(index, aliasIndex).Do(ctx)
+			_, err := ElasticClient.Alias().Add(index, aliasIndex).Do(ctx)
 			if err != nil {
 				return err
 			}
-			logs.Info("create es index alias: " + aliasResult.Index)
+			logs.Info("create es index alias: " + aliasIndex)
 		}
 	}
 	return nil

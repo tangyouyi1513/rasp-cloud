@@ -33,7 +33,7 @@ func (o *ReportController) Post() {
 		o.ServeError(http.StatusBadRequest, "json format error： "+err.Error())
 	}
 	if reportData.RaspId == "" {
-		o.ServeError(http.StatusBadRequest, "rasp_id can not be empty")
+		o.ServeError(http.StatusBadRequest, "rasp_id cannot be empty")
 	}
 	rasp, err := models.GetRaspById(reportData.RaspId)
 	if err != nil {
@@ -43,7 +43,7 @@ func (o *ReportController) Post() {
 		o.ServeError(http.StatusBadRequest, "time param must be greater than 0")
 	}
 	if reportData.RequestSum < 0 {
-		o.ServeError(http.StatusBadRequest, "request_sum param can not be less than 0")
+		o.ServeError(http.StatusBadRequest, "request_sum param cannot be less than 0")
 	}
 	err = models.AddReportData(reportData, rasp.AppId)
 	if err != nil {

@@ -22,7 +22,34 @@ import (
 	"path"
 	"rasp-cloud/es"
 	"time"
+	"encoding/json"
+	"github.com/olivere/elastic"
+	"context"
 )
+
+type AggrTimeParam struct {
+	AppId     string `json:"app_id"`
+	StartTime int64  `json:"start_time"`
+	EndTime   int64  `json:"end_time"`
+	Interval  string `json:"interval"`
+	TimeZone  string `json:"time_zone"`
+}
+
+type AggrFieldParam struct {
+	AppId     string `json:"app_id"`
+	StartTime int64  `json:"start_time"`
+	EndTime   int64  `json:"end_time"`
+	Size      int    `json:"size"`
+}
+
+type SearchLogParam struct {
+	AppId     string                 `json:"app_id"`
+	StartTime int64                  `json:"start_time"`
+	EndTime   int64                  `json:"end_time"`
+	Page      int                    `json:"page"`
+	Perpage   int                    `json:"perpage"`
+	Data      map[string]interface{} `json:"data"`
+}
 
 var (
 	AttackAlarmType = "attack-alarm"
@@ -81,4 +108,48 @@ func AddLogWithLogstash(alarmType string, content []byte) {
 
 func AddLogWithKafka(alarmType string, content []byte) {
 
+}
+
+func SearchLogs(startTime int64, endTime int64, query map[string]interface{}, sortField string, page int,
+	perpage int, ascending bool, index ...string) (int64, []map[string]interface{}, error) {
+	var total int64
+	queries := make([]elastic.Query, 0, len(query)+1)
+	if query != nil {
+		for key, value := range query {
+			if key == "attack_type" {
+				if v, ok := value.([]interface{}); ok {
+					queries = append(queries, elastic.NewTermsQuery(key, v...))
+				} else {
+					queries = append(queries, elastic.NewTermQuery(key, value))
+				}
+			} else {
+				queries = append(queries, elastic.NewTermQuery(key, value))
+			}
+		}
+	}
+	queries = append(queries, elastic.NewRangeQuery("event_time").Gte(startTime).Lte(endTime))
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(10*time.Second))
+	defer cancel()
+	queryResult, err := es.ElasticClient.Search(index...).
+		Query(elastic.NewBoolQuery().Must(queries...)).
+		Sort(sortField, ascending).
+		From(page * perpage).Size(page).Do(ctx)
+	if err != nil {
+		return 0, nil, err
+	}
+	result := make([]map[string]interface{}, 0)
+	if queryResult != nil && queryResult.Hits != nil && queryResult.Hits.Hits != nil {
+		hits := queryResult.Hits.Hits
+		total = queryResult.Hits.TotalHits
+		result = make([]map[string]interface{}, len(hits))
+		for index, item := range hits {
+			result[index] = make(map[string]interface{})
+			err := json.Unmarshal(*item.Source, result[index])
+			result[index]["id"] = item.Id
+			if err != nil {
+				return 0, nil, err
+			}
+		}
+	}
+	return total, result, nil
 }

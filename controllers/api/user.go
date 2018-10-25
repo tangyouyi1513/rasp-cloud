@@ -40,10 +40,10 @@ func (o *UserController) Login() {
 	logUser := loginData["username"]
 	logPasswd := loginData["password"]
 	if logUser == "" || logPasswd == "" {
-		o.ServeError(http.StatusBadRequest, "username or password can not be empty")
+		o.ServeError(http.StatusBadRequest, "username or password cannot be empty")
 	}
 	if len(logUser) > 512 || len(logPasswd) > 512 {
-		o.ServeError(http.StatusBadRequest, "the length of username or password can not be greater than 512")
+		o.ServeError(http.StatusBadRequest, "the length of username or password cannot be greater than 512")
 	}
 	if logUser == models.GetLoginUser() && logPasswd == models.GetLoginPasswd() {
 		cookie := fmt.Sprintf("%x", md5.Sum([]byte(strconv.Itoa(rand.Intn(10000)) + logUser + "openrasp"+

@@ -25,7 +25,7 @@ func (o *ReportController) Get() {
 	}
 	startTimeParam := query["start_time"]
 	if startTimeParam == nil {
-		o.ServeError(http.StatusBadRequest, "start_time can not be empty")
+		o.ServeError(http.StatusBadRequest, "start_time cannot be empty")
 	}
 	startTime, ok := startTimeParam.(float64)
 	if !ok {
@@ -33,7 +33,7 @@ func (o *ReportController) Get() {
 	}
 	endTimeParam := query["end_time"]
 	if endTimeParam == nil {
-		o.ServeError(http.StatusBadRequest, "end_time can not be empty")
+		o.ServeError(http.StatusBadRequest, "end_time cannot be empty")
 	}
 	endTime, ok := endTimeParam.(float64)
 	if !ok {
@@ -41,11 +41,19 @@ func (o *ReportController) Get() {
 	}
 	intervalParam := query["interval"]
 	if intervalParam == nil {
-		o.ServeError(http.StatusBadRequest, "interval can not be empty")
+		o.ServeError(http.StatusBadRequest, "interval cannot be empty")
 	}
 	interval, ok := intervalParam.(string)
 	if !ok {
 		o.ServeError(http.StatusBadRequest, "interval must be string")
+	}
+	timeZoneParam := query["time_zone"]
+	if timeZoneParam == nil {
+		o.ServeError(http.StatusBadRequest, "time_zone cannot be empty")
+	}
+	timeZone, ok := timeZoneParam.(string)
+	if !ok {
+		o.ServeError(http.StatusBadRequest, "time_zone must be string")
 	}
 	isValidInterval := false
 	for index := range intervals {
@@ -58,20 +66,20 @@ func (o *ReportController) Get() {
 	}
 	appIdParam := query["app_id"]
 	if appIdParam != nil {
-		appId, ok := appIdParam.(string)
-		if !ok {
-			o.ServeError(http.StatusBadRequest, "app_id must be string")
-		}
-		_, err := models.GetAppById(appId)
-		if err != nil {
-			o.ServeError(http.StatusBadRequest, "failed to get app： "+err.Error())
-		}
-		err = models.GetHistoryRequestSum(int64(startTime), int64(endTime), interval, appId, "")
-		if err != nil {
-			o.ServeError(http.StatusBadRequest, "failed to get request sum form ES: "+err.Error())
-		}
-	} else {
-
+		appIdParam = "*"
 	}
+	appId, ok := appIdParam.(string)
+	if !ok {
+		o.ServeError(http.StatusBadRequest, "app_id must be string")
+	}
+	_, err = models.GetAppById(appId)
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "failed to get app： "+err.Error())
+	}
+	err, result := models.GetHistoryRequestSum(int64(startTime), int64(endTime), interval, timeZone, appId, "")
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "failed to get request sum form ES: "+err.Error())
+	}
+	o.Serve(result)
 
 }

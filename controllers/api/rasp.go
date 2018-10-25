@@ -34,7 +34,7 @@ func (o *RaspController) Post() {
 	}
 	pageParam := data["page"]
 	if pageParam == nil {
-		o.ServeError(http.StatusBadRequest, "failed to get page param: "+"the page param can not be empty")
+		o.ServeError(http.StatusBadRequest, "failed to get page param: "+"the page param cannot be empty")
 	}
 	page, ok := pageParam.(float64)
 	if !ok {
@@ -45,7 +45,7 @@ func (o *RaspController) Post() {
 	}
 	perpageParam := data["perpage"]
 	if perpageParam == nil {
-		o.ServeError(http.StatusBadRequest, "failed to get page perparam: "+"the perpage param can not be empty")
+		o.ServeError(http.StatusBadRequest, "failed to get page perparam: "+"the perpage param cannot be empty")
 	}
 	perpage, ok := perpageParam.(float64)
 	if !ok {
@@ -56,7 +56,7 @@ func (o *RaspController) Post() {
 	}
 	raspDataParam := data["data"]
 	if raspDataParam == nil || raspDataParam == "" {
-		o.ServeError(http.StatusBadRequest, "the data param can not be empty")
+		o.ServeError(http.StatusBadRequest, "the data param cannot be empty")
 	}
 	raspData, ok := raspDataParam.(map[string]interface{})
 	if !ok {
@@ -85,7 +85,7 @@ func (o *RaspController) Delete() {
 		o.ServeError(http.StatusBadRequest, "json format error： "+err.Error())
 	}
 	if rasp.Id == "" {
-		o.ServeError(http.StatusBadRequest, "the id can not be empty")
+		o.ServeError(http.StatusBadRequest, "the id cannot be empty")
 	}
 	err = models.RemoveRaspById(rasp.Id)
 	if err != nil {

@@ -15,7 +15,6 @@
 package main
 
 import (
-	_ "rasp-cloud/routers"
 	_ "rasp-cloud/models"
 	_ "rasp-cloud/filter"
 	_ "rasp-cloud/controllers"
@@ -23,13 +22,24 @@ import (
 	"github.com/astaxie/beego/logs"
 	"os"
 	"rasp-cloud/tools"
+	"flag"
+	"rasp-cloud/routers"
 	"rasp-cloud/controllers"
 )
 
 func main() {
+	beego.BConfig.Listen.Graceful = true
+	handleCmdArgs()
 	initLogger()
 	beego.ErrorController(&controllers.ErrorController{})
 	beego.Run()
+}
+
+func handleCmdArgs() {
+	startType := flag.String("type", "", "use to provide different routers")
+	flag.Parse()
+	routers.InitRouter(*startType)
+
 }
 
 func initLogger() {
