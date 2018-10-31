@@ -118,11 +118,11 @@ func (o *AttackAlarmController) Search() {
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "json decode error： "+err.Error())
 	}
-	if param.StartTime <= 0 {
-		o.ServeError(http.StatusBadRequest, "start_time must be greater than 0")
+	if param.StartTime < 0 {
+		o.ServeError(http.StatusBadRequest, "start_time can not be less than 0")
 	}
-	if param.EndTime <= 0 {
-		o.ServeError(http.StatusBadRequest, "end_time must be greater than 0")
+	if param.EndTime < 0 {
+		o.ServeError(http.StatusBadRequest, "end_time can not be less than 0")
 	}
 	if param.StartTime > param.EndTime {
 		o.ServeError(http.StatusBadRequest, "start_time cannot be greater than end_time")

@@ -23,15 +23,17 @@ import (
 	"sync"
 	"rasp-cloud/tools"
 	"gopkg.in/mgo.v2"
+	"time"
 )
 
 type Plugin struct {
-	AppId      string `json:"app_id" bson:"app_id"`
-	Selected   bool   `json:"selected" bson:"selected"`
-	UploadTime int64  `json:"upload_time" bson:"upload_time"`
-	Version    string `json:"version" bson:"version"`
-	Md5        string `json:"md5,omitempty" bson:"md5"`
-	Content    string `json:"plugin,omitempty" bson:"content"`
+	Id           string `json:"id,omitempty" bson:"_id"`
+	AppId        string `json:"app_id" bson:"app_id"`
+	UploadTime   int64  `json:"upload_time" bson:"upload_time"`
+	Version      string `json:"version" bson:"version"`
+	Md5          string `json:"md5" bson:"md5"`
+	Content      string `json:"plugin,omitempty" bson:"content"`
+	ConfigFormat string `json:"config_format" bson:"config_format"`
 }
 
 const (
@@ -81,52 +83,86 @@ func createIndex() {
 	}
 }
 
-func AddPlugin(version string, content []byte, appId string) (plugin *Plugin, err error) {
+func AddPlugin(version string, content []byte, appId string, configFormat string) (plugin *Plugin, err error) {
 	newMd5 := fmt.Sprintf("%x", md5.Sum(content))
-	plugin = &Plugin{Version: version, Md5: newMd5, Content: string(content)}
+	plugin = &Plugin{
+		Version:      version,
+		Md5:          newMd5, Content: string(content),
+		UploadTime:   time.Now().UnixNano() / 1000000,
+		ConfigFormat: configFormat,
+		AppId:        appId,
+		Id:           appId + newMd5,
+	}
 	mutex.Lock()
 	defer mutex.Unlock()
-	//var count int
-	//var app *App
-	//if err = mongo.FindIdWithSelect(appCollectionName, appId, &app, bson.M{"plugin.content": -1}); err != nil {
-	//	return
-	//}
-	//count = len(app.Plugin)
-	//if count > MaxPlugins-1 {
-	//	var oldPlugins []Plugin = err = mongo.FindAllBySort(pluginCollectionName, nil, 0,
-	//		count+1-MaxPlugins, &oldPlugins, "version")
-	//	if err != nil {
-	//		return
-	//	}
-	//	for _, oldPlugin := range oldPlugins {
-	//		err = mongo.Remove(pluginCollectionName, bson.M{"_id": oldPlugin.Md5})
-	//		if err != nil {
-	//			return
-	//		}
-	//	}
-	//}
-	//err = mongo.Insert(pluginCollectionName, plugin)
+
+	var count int
+	_, oldPlugins, err := GetPluginsByApp(appId, MaxPlugins-1, 0)
+	if err != nil {
+		return
+	}
+	count = len(oldPlugins)
+	if count > 0 {
+		for _, oldPlugin := range oldPlugins {
+			err = mongo.RemoveId(pluginCollectionName, oldPlugin.Id)
+			if err != nil {
+				return
+			}
+		}
+	}
+	err = mongo.Insert(pluginCollectionName, plugin)
 	return
 }
 
 func GetSelectedPlugin(appId string) (plugin *Plugin, err error) {
-	//var app *App
-	//if err = mongo.FindIdWithSelect(appCollectionName, appId, &app, bson.M{"plugin.content": -1}); err != nil {
-	//	return
-	//}
+	var app *App
+	if err = mongo.FindId(appCollectionName, appId, &app); err != nil {
+		return
+	}
+	return GetPluginById(app.SelectedPluginId)
+}
+
+func SetSelectedPlugin(appId string, pluginId string) error {
+	var app *App
+	if err := mongo.FindId(appCollectionName, appId, &app); err != nil {
+		return err
+	}
+	_, err := GetPluginById(pluginId)
+	if err != nil {
+		return err
+	}
+	app.SelectedPluginId = pluginId
+	return mongo.UpdateId(appCollectionName, appId, app)
+}
+
+func GetPluginById(id string) (plugin *Plugin, err error) {
+	err = mongo.FindId(pluginCollectionName, id, &plugin)
 	return
 }
 
-func GetPluginByVersion(version string, appId string) (plugin *Plugin, err error) {
-	err = mongo.FindOne(pluginCollectionName, bson.M{"version": version}, plugin)
-	return
-}
-
-func GetAllPlugin(appId string) (plugins []Plugin, err error) {
+func GetPluginsByApp(appId string, skip int, limit int) (total int, plugins []Plugin, err error) {
 	newSession := mongo.NewSession()
 	defer newSession.Close()
-	err = newSession.DB(mongo.DbName).C(pluginCollectionName).Find(nil).All(&plugins)
+	total, err = newSession.DB(mongo.DbName).C(pluginCollectionName).Find(bson.M{"app_id": appId}).Count()
+	if err != nil {
+		return
+	}
+	err = newSession.DB(mongo.DbName).C(pluginCollectionName).Find(bson.M{"app_id": appId}).
+		Sort("-upload_time").Skip(skip).Limit(limit).All(&plugins)
 	return
+}
+
+func GetPluginByMd5(appId string, md5 string) (plugin *Plugin, count int, err error) {
+	newSession := mongo.NewSession()
+	defer newSession.Close()
+	err = newSession.DB(mongo.DbName).C(pluginCollectionName).Find(bson.M{"app_id": appId, "md5": md5}).One(&plugin)
+	return
+}
+
+func DeletePlugin(pluginId string) error {
+	mutex.Lock()
+	defer mutex.Unlock()
+	return mongo.RemoveId(pluginCollectionName, pluginId)
 }
 
 func NewPlugin(version string, content []byte, appId string) *Plugin {

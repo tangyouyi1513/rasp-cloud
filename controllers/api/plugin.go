@@ -18,11 +18,13 @@ import (
 	"rasp-cloud/models"
 	"path"
 	"net/http"
-	"bufio"
-	"regexp"
 	"rasp-cloud/controllers"
 	"io/ioutil"
-	"io"
+	"archive/zip"
+	"encoding/json"
+	"bufio"
+	"regexp"
+	"bytes"
 )
 
 // Operations about plugin
@@ -36,87 +38,107 @@ func (o *PluginController) Upload() {
 	if appId == "" {
 		o.ServeError(http.StatusBadRequest, "app_id can not be empty")
 	}
-	file, info, err := o.GetFile("plugin")
-	if file == nil {
+	uploadFile, info, err := o.GetFile("plugin")
+	if uploadFile == nil {
 		o.ServeError(http.StatusBadRequest, "must have the plugin parameter")
 	}
-	defer file.Close()
+	defer uploadFile.Close()
 	if err != nil {
-		o.ServeError(http.StatusBadRequest, "parse file error: "+err.Error())
+		o.ServeError(http.StatusBadRequest, "parse uploadFile error: "+err.Error())
 	}
 	if info.Size == 0 {
-		o.ServeError(http.StatusBadRequest, "upload file cannot be empty")
+		o.ServeError(http.StatusBadRequest, "upload uploadFile cannot be empty")
 	}
 	fileName := info.Filename
-	if len(fileName) <= 0 || len(fileName) > 10 {
-		o.ServeError(http.StatusBadRequest, "the length of upload file name must be (0.50]")
+	if len(fileName) <= 0 || len(fileName) > 50 {
+		o.ServeError(http.StatusBadRequest, "the length of upload uploadFile name must be (0,50]")
 	}
-	if path.Ext(fileName) != ".js" {
-		o.ServeError(http.StatusBadRequest, "the file name suffix must be .js")
+	if path.Ext(fileName) != ".zip" {
+		o.ServeError(http.StatusBadRequest, "the uploadFile name suffix must be .zip")
 	}
-
-	firstLine, err := bufio.NewReader(file).ReadString('\n')
+	reader, err := zip.NewReader(uploadFile, info.Size)
 	if err != nil {
-		o.ServeError(http.StatusBadRequest, "failed to read the plugin: "+err.Error())
+		o.ServeError(http.StatusBadRequest, "failed to read zip uploadFile: "+err.Error())
 	}
-
+	var configFormat string
+	var pluginContent []byte
 	var newVersion string
-	if versionArr := regexp.MustCompile(`'.+'|".+"`).FindAllString(firstLine, -1); len(versionArr) > 0 {
-		newVersion = versionArr[0][1 : len(versionArr[0])-1]
-	} else {
-		o.ServeError(http.StatusBadRequest, "failed to find the plugin version: "+err.Error())
+	for _, file := range reader.File {
+		if file.Name == "plugin/plugin.js" {
+			fileReader, err := file.Open()
+			if err != nil {
+				o.ServeError(http.StatusBadRequest, "failed to read plugin.js in the zip file: "+err.Error())
+			}
+			content, err := ioutil.ReadAll(fileReader)
+			if err != nil {
+				o.ServeError(http.StatusBadRequest, "failed to read plugin.js in the zip file: "+err.Error())
+			}
+			// parse plugin version
+			firstLine, err := bufio.NewReader(bytes.NewReader(content)).ReadString('\n')
+			if err != nil {
+				o.ServeError(http.StatusBadRequest, "failed to read the plugin.js in the zip file: "+err.Error())
+			}
+			if versionArr := regexp.MustCompile(`'.+'|".+"`).FindAllString(firstLine, -1); len(versionArr) > 0 {
+				newVersion = versionArr[0][1 : len(versionArr[0])-1]
+			} else {
+				o.ServeError(http.StatusBadRequest, "failed to find the plugin version: "+err.Error())
+			}
+			pluginContent = content
+			fileReader.Close()
+		} else if file.Name == "plugin/config.json" {
+			fileReader, err := file.Open()
+			if err != nil {
+				o.ServeError(http.StatusBadRequest, "failed to read config.json in the zip file: "+err.Error())
+			}
+			content, err := ioutil.ReadAll(fileReader)
+			if err != nil {
+				o.ServeError(http.StatusBadRequest, "failed to read config.json in the zip file: "+err.Error())
+			}
+			if !json.Valid(content) {
+				o.ServeError(http.StatusBadRequest, "the format of config.json is error")
+			}
+			configFormat = string(content)
+			fileReader.Close()
+		}
 	}
-
-	//plugin, err := models.GetLatestPlugin()
-	//if err != nil && err != mgo.ErrNotFound {
-	//	o.ServeError(http.StatusBadRequest, "failed to get latest plugin: "+err.Error())
-	//}
-	//if plugin != nil && plugin.Version >= newVersion {
-	//	o.ServeError(http.StatusBadRequest, "the file version must be larger than the current version")
-	//}
-
-	file.Seek(0, io.SeekStart)
-	content, err := ioutil.ReadAll(file)
-	if err != nil {
-		o.ServeError(http.StatusBadRequest, "failed to read upload file: "+err.Error())
+	if configFormat == "" {
+		o.ServeError(http.StatusBadRequest, "plugin config format can not be empty")
 	}
-	latestPlugin, err := models.AddPlugin(newVersion, content, appId)
+	if len(pluginContent) == 0 {
+		o.ServeError(http.StatusBadRequest, "plugin content can not be empty")
+	}
+	if len(newVersion) == 0 {
+		o.ServeError(http.StatusBadRequest, "failed to get plugin version")
+	}
+	latestPlugin, err := models.AddPlugin(newVersion, pluginContent, appId, configFormat)
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to add plugin to mongodb: "+err.Error())
 	}
 	o.Serve(latestPlugin)
-
 }
 
 // @router / [get]
 func (o *PluginController) Get() {
-	appId := o.GetString("app_id")
-	version := o.GetString("version")
-	if len(version) == 0 {
-		plugins, err := models.GetAllPlugin(appId)
-		if err != nil {
-			o.ServeError(http.StatusBadRequest, "failed to get latest plugin from mongodb: "+err.Error())
-		}
-		if plugins == nil {
-			o.Serve([]models.Plugin{})
-		} else {
-			o.Serve(plugins)
-		}
-	} else {
-		plugin, err := models.GetPluginByVersion(version, appId)
-		if err != nil {
-			o.ServeError(http.StatusBadRequest, "failed to get plugin from mongodb: "+err.Error())
-		}
-		if plugin == nil {
-			o.Serve(make(map[string]interface{}))
-		} else {
-			o.Serve(plugin)
-		}
+	pluginId := o.GetString("id")
+	if pluginId == "" {
+		o.ServeError(http.StatusBadRequest, "plugin id cannot be empty")
 	}
+	plugin, err := models.GetPluginById(pluginId)
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "failed to get plugin: "+err.Error())
+	}
+	o.Serve(plugin)
 }
 
-// @router /selected [get]
-func (o *PluginController) GetSelectedPlugin() {
-	//appId := o.GetString("app_id")
-
+// @router /delete [get]
+func (o *PluginController) Delete() {
+	pluginId := o.GetString("id")
+	if pluginId == "" {
+		o.ServeError(http.StatusBadRequest, "plugin_id cannot be empty")
+	}
+	err := models.DeletePlugin(pluginId)
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "failed to delete plugin: "+err.Error())
+	}
+	o.ServeWithoutData()
 }

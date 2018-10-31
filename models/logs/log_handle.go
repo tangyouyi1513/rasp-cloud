@@ -133,7 +133,7 @@ func SearchLogs(startTime int64, endTime int64, query map[string]interface{}, so
 	queryResult, err := es.ElasticClient.Search(index...).
 		Query(elastic.NewBoolQuery().Must(queries...)).
 		Sort(sortField, ascending).
-		From(page * perpage).Size(page).Do(ctx)
+		From((page - 1) * perpage).Size(perpage).Do(ctx)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -144,7 +144,7 @@ func SearchLogs(startTime int64, endTime int64, query map[string]interface{}, so
 		result = make([]map[string]interface{}, len(hits))
 		for index, item := range hits {
 			result[index] = make(map[string]interface{})
-			err := json.Unmarshal(*item.Source, result[index])
+			err := json.Unmarshal(*item.Source, &result[index])
 			result[index]["id"] = item.Id
 			if err != nil {
 				return 0, nil, err

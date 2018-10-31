@@ -23,6 +23,7 @@ import (
 	"strings"
 	"github.com/astaxie/beego/validation"
 	"strconv"
+	"gopkg.in/mgo.v2"
 )
 
 // Operations about app
@@ -31,12 +32,9 @@ type AppController struct {
 }
 
 // @router / [get]
-func (o *AppController) GetAll() {
-	name := o.GetString("name")
-	if len(name) >= 512 {
-		o.ServeError(http.StatusBadRequest, "the length of app name must be less than 512")
-	}
-	if name == "" {
+func (o *AppController) GetApp() {
+	id := o.GetString("id")
+	if id == "" {
 		page, err := o.GetInt("page")
 		if err != nil {
 			o.ServeError(http.StatusBadRequest, "failed to get page param: "+err.Error())
@@ -64,7 +62,7 @@ func (o *AppController) GetAll() {
 		result["data"] = apps
 		o.Serve(result)
 	} else {
-		app, err := models.GetAppByName(name)
+		app, err := models.GetAppById(id)
 		if err != nil {
 			o.ServeError(http.StatusBadRequest, "failed to get app: "+err.Error())
 		}
@@ -74,10 +72,7 @@ func (o *AppController) GetAll() {
 
 // @router /rasp [get]
 func (o *AppController) GetRasps() {
-	name := o.GetString("app_name")
-	if len(name) >= 512 {
-		o.ServeError(http.StatusBadRequest, "the length of app name must be less than 512")
-	}
+	appId := o.GetString("app_id")
 	page, err := o.GetInt("page")
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to get page param: "+err.Error())
@@ -93,7 +88,7 @@ func (o *AppController) GetRasps() {
 		o.ServeError(http.StatusBadRequest, "failed to get perpage param: "+"perpage must be greater than 0")
 	}
 
-	app, err := models.GetAppByName(name)
+	app, err := models.GetAppById(appId)
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to get app: "+err.Error())
 	}
@@ -111,8 +106,8 @@ func (o *AppController) GetRasps() {
 	o.Serve(result)
 }
 
-// @router /config [post]
-func (o *AppController) Config() {
+// @router /rasp/config [post]
+func (o *AppController) ConfigRasp() {
 	var param map[string]interface{}
 	err := json.Unmarshal(o.Ctx.Input.RequestBody, &param)
 	if err != nil {
@@ -165,8 +160,11 @@ func (o *AppController) Post() {
 	if len(app.Name) > 64 {
 		o.ServeError(http.StatusBadRequest, "the length of app name cannot be greater than 64")
 	}
-	if app.Description != "" && len(app.Description) > 1024 {
-		o.ServeError(http.StatusBadRequest, "the length of app description must be greater than 1024")
+	if len(app.Description) > 1024 {
+		o.ServeError(http.StatusBadRequest, "the length of app description can not be greater than 1024")
+	}
+	if len(app.SelectedPluginId) > 1024 {
+		o.ServeError(http.StatusBadRequest, "the length of app selected_plugin_id can not be greater than 1024")
 	}
 	if app.EmailAlarmConf != nil {
 		o.validEmailConf(app.EmailAlarmConf)
@@ -358,6 +356,70 @@ func (o *AppController) validateAppConfig(config map[string]interface{}) {
 // @router /alarm/config [post]
 func (o *AppController) ConfigAlarm() {
 
+}
+
+// @router /plugins [get]
+func (o *AppController) GetPlugins() {
+	appId := o.GetString("app_id")
+	if appId == "" {
+		o.ServeError(http.StatusBadRequest, "app_id param can not be empty")
+	}
+	page, err := o.GetInt("page")
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "failed to get page param: "+err.Error())
+	}
+	if page <= 0 {
+		o.ServeError(http.StatusBadRequest, "page param must be greater than 0")
+	}
+	perpage, err := o.GetInt("perpage")
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "failed to get perpage param: "+err.Error())
+	}
+	if perpage <= 0 {
+		o.ServeError(http.StatusBadRequest, "perpage param must be greater than 0")
+	}
+	total, plugins, err := models.GetPluginsByApp(appId, (page-1)*perpage, perpage)
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "failed to get plugins: "+err.Error())
+	}
+	result := make(map[string]interface{})
+	result["total"] = total
+	result["data"] = plugins
+	o.Serve(result)
+}
+
+// @router /plugin/selected [get]
+func (o *AppController) GetSelectedPlugin() {
+	appId := o.GetString("app_id")
+	if appId == "" {
+		o.ServeError(http.StatusBadRequest, "app_id cannot be empty")
+	}
+	plugin, err := models.GetSelectedPlugin(appId)
+	if mgo.ErrNotFound == err {
+		o.ServeWithoutData()
+		return
+	}
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "failed to get selected plugin: "+err.Error())
+	}
+	o.Serve(plugin)
+}
+
+// @router /plugin/select [get]
+func (o *AppController) SetSelectedPlugin() {
+	appId := o.GetString("app_id")
+	if appId == "" {
+		o.ServeError(http.StatusBadRequest, "app_id cannot be empty")
+	}
+	pluginId := o.GetString("plugin_id")
+	if pluginId == "" {
+		o.ServeError(http.StatusBadRequest, "plugin_id cannot be empty")
+	}
+	err := models.SetSelectedPlugin(appId, pluginId)
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "failed to set selected plugin: "+err.Error())
+	}
+	o.ServeWithoutData()
 }
 
 // @router /email/test [get]

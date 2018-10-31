@@ -21,7 +21,6 @@ import (
 	"math/rand"
 	"fmt"
 	"crypto/sha1"
-	"gopkg.in/mgo.v2/bson"
 )
 
 type Token struct {
@@ -59,7 +58,7 @@ func RemoveToken(tokenId string) (token *Token, err error) {
 	if err != nil {
 		return
 	}
-	return token, mongo.Remove(tokenCollectionName, bson.M{"_id": tokenId})
+	return token, mongo.RemoveId(tokenCollectionName, tokenId)
 }
 
 func generateToken() string {

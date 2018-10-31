@@ -39,7 +39,6 @@ func handleCmdArgs() {
 	startType := flag.String("type", "", "use to provide different routers")
 	flag.Parse()
 	routers.InitRouter(*startType)
-
 }
 
 func initLogger() {

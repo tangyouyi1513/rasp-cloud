@@ -69,7 +69,7 @@ func GetRaspByAppId(id string, page int, perpage int) (count int, result []*Rasp
 }
 
 func RemoveRaspByAppId(appId string) (err error) {
-	return mongo.Remove(raspCollectionName, bson.M{"app_id": appId})
+	return mongo.RemoveId(raspCollectionName, appId)
 }
 
 func FindRasp(selector map[string]interface{}, page int, perpage int) (count int, result []*Rasp, err error) {
@@ -83,5 +83,5 @@ func GetRaspById(id string) (rasp *Rasp, err error) {
 }
 
 func RemoveRaspById(id string) (err error) {
-	return mongo.Remove(raspCollectionName, bson.M{"_id": id})
+	return mongo.RemoveId(raspCollectionName, id)
 }

@@ -98,12 +98,6 @@ func FindAllWithSelect(collection string, query interface{}, result interface{},
 	return
 }
 
-func FindIdWithSelect(collection string, id string, result interface{}, selector interface{}) error {
-	newSession := NewSession()
-	defer newSession.Close()
-	return newSession.DB(DbName).C(collection).FindId(id).Select(selector).One(result)
-}
-
 func FindId(collection string, id string, result interface{}) error {
 	newSession := NewSession()
 	defer newSession.Close()
@@ -134,8 +128,8 @@ func UpdateId(collection string, id interface{}, doc interface{}) error {
 	return newSession.DB(DbName).C(collection).UpdateId(id, doc)
 }
 
-func Remove(collection string, selector interface{}) error {
+func RemoveId(collection string, id interface{}) error {
 	newSession := NewSession()
 	defer newSession.Close()
-	return newSession.DB(DbName).C(collection).Remove(selector)
+	return newSession.DB(DbName).C(collection).RemoveId(id)
 }

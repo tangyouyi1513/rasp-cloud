@@ -22,6 +22,9 @@ import (
 	"github.com/olivere/elastic"
 	"time"
 	"context"
+	"github.com/oschwald/geoip2-golang"
+	"github.com/astaxie/beego"
+	"net"
 )
 
 type AttackAlarm struct {
@@ -124,6 +127,25 @@ var (
 						"type": "keyword",
 						"ignore_above": 256
 					},
+					"attack_location": {
+						"type": "object",
+						"properties": {
+							"location_zh_cn":{
+								"type": "keyword",
+								"ignore_above": 256
+							},
+							"location_en":{
+								"type": "keyword",
+								"ignore_above": 256
+							},
+							"longitude":{
+								"type": "double"
+							},
+							"latitude":{
+								"type": "double"
+							}
+						}
+					},
 					"plugin_algorithm":{
 						"type": "keyword",
 						"ignore_above": 256
@@ -156,11 +178,38 @@ func AddAttackAlarm(alarm map[string]interface{}) error {
 			alarm["stack_md5"] = fmt.Sprintf("%x", md5.Sum([]byte(stack.(string))))
 		}
 	}
+	setAlarmLocation(alarm)
 	content, err := json.Marshal(alarm)
 	if err == nil {
 		AddAlarmFunc(AttackAlarmType, content)
 	}
 	return err
+}
+
+func setAlarmLocation(alarm map[string]interface{}) {
+	if attackSource, ok := alarm["attack_source"]; ok && attackSource != nil {
+		_, ok = attackSource.(string)
+		if ok {
+			db, err := geoip2.Open("geoip/GeoLite2-City.mmdb")
+			if err != nil {
+				beego.Error("failed to open geoip database: " + err.Error())
+			}
+			defer db.Close()
+			attackIp := net.ParseIP(attackSource.(string))
+			record, err := db.City(attackIp)
+			if err != nil {
+				beego.Error("failed to parse attack ip to location: " + err.Error())
+			}
+			if record != nil {
+				alarm["attack_location"] = map[string]interface{}{
+					"location_zh_cn": record.Country.Names["zh-CN"] + "-" + record.City.Names["zh-CN"],
+					"location_en":    record.Country.Names["en"] + "-" + record.City.Names["en"],
+					"latitude":       record.Location.Latitude,
+					"longitude":      record.Location.Longitude,
+				}
+			}
+		}
+	}
 }
 
 func AggregationAttackWithTime(startTime int64, endTime int64, interval string, timeZone string,

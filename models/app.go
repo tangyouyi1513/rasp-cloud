@@ -38,14 +38,15 @@ import (
 )
 
 type App struct {
-	Id             string                 `json:"id" bson:"_id"`
-	Name           string                 `json:"name"  bson:"name"`
-	Description    string                 `json:"description"  bson:"description"`
-	ConfigTime     int64                  `json:"config_time"  bson:"config_time"`
-	RaspConfig     map[string]interface{} `json:"rasp_config"  bson:"rasp_config"`
-	EmailAlarmConf *EmailAlarmConf        `json:"email_alarm_conf" bson:"email_alarm_conf"`
-	DingAlarmConf  *DingAlarmConf         `json:"ding_alarm_conf" bson:"ding_alarm_conf"`
-	HttpAlarmConf  *HttpAlarmConf         `json:"http_alarm_conf" bson:"http_alarm_conf"`
+	Id               string                 `json:"id" bson:"_id"`
+	Name             string                 `json:"name"  bson:"name"`
+	Description      string                 `json:"description"  bson:"description"`
+	ConfigTime       int64                  `json:"config_time"  bson:"config_time"`
+	RaspConfig       map[string]interface{} `json:"rasp_config"  bson:"rasp_config"`
+	SelectedPluginId string                 `json:"selected_plugin_id" bson:"selected_plugin_id"`
+	EmailAlarmConf   *EmailAlarmConf        `json:"email_alarm_conf" bson:"email_alarm_conf"`
+	DingAlarmConf    *DingAlarmConf         `json:"ding_alarm_conf" bson:"ding_alarm_conf"`
+	HttpAlarmConf    *HttpAlarmConf         `json:"http_alarm_conf" bson:"http_alarm_conf"`
 }
 
 type EmailAlarmConf struct {
@@ -203,7 +204,7 @@ func UpdateAppById(id string, app *App) (err error) {
 }
 
 func RemoveAppById(id string) (err error) {
-	return mongo.Remove(appCollectionName, bson.M{"_id": id})
+	return mongo.RemoveId(appCollectionName, id)
 }
 
 func PushAttackAlarm(app *App, total int64, alarms []map[string]interface{}, isTest bool) {

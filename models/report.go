@@ -73,12 +73,15 @@ func GetHistoryRequestSum(startTime int64, endTime int64, interval string, timeZ
 	raspId string) (error, []map[string]interface{}) {
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(10*time.Second))
 	defer cancel()
+	timeAggrName := "aggr_time"
+	sumAggrName := "request_sum"
 	timeAggr := elastic.NewDateHistogramAggregation().Field("time").TimeZone(timeZone).Interval(interval)
+	requestSumAggr := elastic.NewSumAggregation().Field("request_sum")
+	timeAggr.SubAggregation(sumAggrName, requestSumAggr)
 	timeQuery := elastic.NewRangeQuery("time").Gte(startTime).Lte(endTime)
-	aggrName := "aggr_time"
 	aggrResult, err := es.ElasticClient.Search(AliasReportIndexName + "-" + appId).
 		Query(timeQuery).
-		Aggregation(aggrName, timeAggr).
+		Aggregation(timeAggrName, timeAggr).
 		Size(0).
 		Do(ctx)
 	if err != nil {
@@ -86,12 +89,16 @@ func GetHistoryRequestSum(startTime int64, endTime int64, interval string, timeZ
 	}
 	result := make([]map[string]interface{}, 0)
 	if aggrResult != nil && aggrResult.Aggregations != nil {
-		if terms, ok := aggrResult.Aggregations.Terms(aggrName); ok && terms.Buckets != nil {
+		if terms, ok := aggrResult.Aggregations.Terms(timeAggrName); ok && terms.Buckets != nil {
 			result = make([]map[string]interface{}, len(terms.Buckets))
 			for index, item := range terms.Buckets {
 				result[index] = make(map[string]interface{})
 				result[index]["start_time"] = item.Key
-				result[index]["request_sum"] = item.DocCount
+				if sumItem, ok := item.Sum(sumAggrName); ok {
+					result[index]["request_sum"] = sumItem.Value
+				} else {
+					result[index]["request_sum"] = 0
+				}
 			}
 		}
 	}

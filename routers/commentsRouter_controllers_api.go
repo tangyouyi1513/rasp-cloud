@@ -9,7 +9,7 @@ func init() {
 
 	beego.GlobalControllerRouter["rasp-cloud/controllers/api:AppController"] = append(beego.GlobalControllerRouter["rasp-cloud/controllers/api:AppController"],
 		beego.ControllerComments{
-			Method: "GetAll",
+			Method: "GetApp",
 			Router: `/`,
 			AllowHTTPMethods: []string{"get"},
 			MethodParams: param.Make(),
@@ -27,14 +27,6 @@ func init() {
 		beego.ControllerComments{
 			Method: "ConfigAlarm",
 			Router: `/alarm/config`,
-			AllowHTTPMethods: []string{"post"},
-			MethodParams: param.Make(),
-			Params: nil})
-
-	beego.GlobalControllerRouter["rasp-cloud/controllers/api:AppController"] = append(beego.GlobalControllerRouter["rasp-cloud/controllers/api:AppController"],
-		beego.ControllerComments{
-			Method: "Config",
-			Router: `/config`,
 			AllowHTTPMethods: []string{"post"},
 			MethodParams: param.Make(),
 			Params: nil})
@@ -77,9 +69,41 @@ func init() {
 
 	beego.GlobalControllerRouter["rasp-cloud/controllers/api:AppController"] = append(beego.GlobalControllerRouter["rasp-cloud/controllers/api:AppController"],
 		beego.ControllerComments{
+			Method: "SetSelectedPlugin",
+			Router: `/plugin/select`,
+			AllowHTTPMethods: []string{"get"},
+			MethodParams: param.Make(),
+			Params: nil})
+
+	beego.GlobalControllerRouter["rasp-cloud/controllers/api:AppController"] = append(beego.GlobalControllerRouter["rasp-cloud/controllers/api:AppController"],
+		beego.ControllerComments{
+			Method: "GetSelectedPlugin",
+			Router: `/plugin/selected`,
+			AllowHTTPMethods: []string{"get"},
+			MethodParams: param.Make(),
+			Params: nil})
+
+	beego.GlobalControllerRouter["rasp-cloud/controllers/api:AppController"] = append(beego.GlobalControllerRouter["rasp-cloud/controllers/api:AppController"],
+		beego.ControllerComments{
+			Method: "GetPlugins",
+			Router: `/plugins`,
+			AllowHTTPMethods: []string{"get"},
+			MethodParams: param.Make(),
+			Params: nil})
+
+	beego.GlobalControllerRouter["rasp-cloud/controllers/api:AppController"] = append(beego.GlobalControllerRouter["rasp-cloud/controllers/api:AppController"],
+		beego.ControllerComments{
 			Method: "GetRasps",
 			Router: `/rasp`,
 			AllowHTTPMethods: []string{"get"},
+			MethodParams: param.Make(),
+			Params: nil})
+
+	beego.GlobalControllerRouter["rasp-cloud/controllers/api:AppController"] = append(beego.GlobalControllerRouter["rasp-cloud/controllers/api:AppController"],
+		beego.ControllerComments{
+			Method: "ConfigRasp",
+			Router: `/rasp/config`,
+			AllowHTTPMethods: []string{"post"},
 			MethodParams: param.Make(),
 			Params: nil})
 
@@ -93,8 +117,8 @@ func init() {
 
 	beego.GlobalControllerRouter["rasp-cloud/controllers/api:PluginController"] = append(beego.GlobalControllerRouter["rasp-cloud/controllers/api:PluginController"],
 		beego.ControllerComments{
-			Method: "GetSelectedPlugin",
-			Router: `/selected`,
+			Method: "Delete",
+			Router: `/delete`,
 			AllowHTTPMethods: []string{"get"},
 			MethodParams: param.Make(),
 			Params: nil})
