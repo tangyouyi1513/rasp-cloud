@@ -19,20 +19,22 @@ import (
 	"rasp-cloud/tools"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+	"time"
 )
 
 type Rasp struct {
 	Id                string `json:"id" bson:"_id"`
 	AppId             string `json:"app_id" bson:"app_id"`
 	Version           string `json:"version" bson:"version"`
-	HostName          string `json:"host_name" bson:"host_name"`
-	LocalIp           string `json:"local_ip" bson:"local_ip"`
+	HostName          string `json:"hostname" bson:"hostname"`
+	RegisterIp        string `json:"register_ip" bson:"register_ip"`
 	Language          string `json:"language" bson:"language"`
 	LanguageVersion   string `json:"language_version" bson:"language_version"`
 	ServerType        string `json:"server_type" bson:"server_type"`
 	ServerVersion     string `json:"server_version" bson:"server_version"`
 	RaspHome          string `json:"rasp_home" bson:"rasp_home"`
 	PluginVersion     string `json:"plugin_version" bson:"plugin_version"`
+	Online            bool   `json:"online" bson:"online"`
 	LastHeartbeatTime int64  `json:"last_heartbeat_time" bson:"last_heartbeat_time"`
 }
 
@@ -65,6 +67,11 @@ func UpsertRaspById(id string, rasp *Rasp) (error) {
 
 func GetRaspByAppId(id string, page int, perpage int) (count int, result []*Rasp, err error) {
 	count, err = mongo.FindAll(raspCollectionName, bson.M{"app_id": id}, &result, perpage*(page-1), perpage)
+	if err == nil {
+		for _, rasp := range result {
+			HandleRasp(rasp)
+		}
+	}
 	return
 }
 
@@ -74,12 +81,28 @@ func RemoveRaspByAppId(appId string) (err error) {
 
 func FindRasp(selector map[string]interface{}, page int, perpage int) (count int, result []*Rasp, err error) {
 	count, err = mongo.FindAll(raspCollectionName, bson.M(selector), &result, perpage*(page-1), perpage)
+	if err == nil {
+		for _, rasp := range result {
+			HandleRasp(rasp)
+		}
+	}
 	return
 }
 
 func GetRaspById(id string) (rasp *Rasp, err error) {
-	err = mongo.FindOne(raspCollectionName, bson.M{"_id": id}, &rasp)
+	err = mongo.FindId(raspCollectionName, id, &rasp)
+	if err == nil {
+		HandleRasp(rasp)
+	}
 	return
+}
+
+func HandleRasp(rasp *Rasp) {
+	if rasp.LastHeartbeatTime-time.Now().Unix() > 180 {
+		rasp.Online = false
+	} else {
+		rasp.Online = true
+	}
 }
 
 func RemoveRaspById(id string) (err error) {

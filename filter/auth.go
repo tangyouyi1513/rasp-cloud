@@ -39,7 +39,7 @@ func authAgent(ctx *context.Context) {
 func authApi(ctx *context.Context) {
 	cookie := ctx.GetCookie(models.AuthCookieName)
 	if has, err := models.HasCookie(cookie); !has || err != nil {
-		token := ctx.Input.Header("RASP-AUTH-ST-TOKEN")
+		token := ctx.Input.Header("X-OpenRASP-Token")
 		if has, err = models.HasTokent(token); !has || err != nil {
 			ctx.Output.JSON(map[string]interface{}{
 				"status": http.StatusUnauthorized, "description": http.StatusText(http.StatusUnauthorized)},

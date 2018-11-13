@@ -73,7 +73,6 @@ func (o *ReportController) Get() {
 		o.ServeError(http.StatusBadRequest, "app_id must be string")
 	}
 	_, err = models.GetAppById(appId)
-	fmt.Println(appId)
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to get app： "+err.Error())
 	}

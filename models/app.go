@@ -40,36 +40,39 @@ import (
 type App struct {
 	Id               string                 `json:"id" bson:"_id"`
 	Name             string                 `json:"name"  bson:"name"`
+	Language         string                 `json:"language"  bson:"language"`
 	Description      string                 `json:"description"  bson:"description"`
 	ConfigTime       int64                  `json:"config_time"  bson:"config_time"`
-	RaspConfig       map[string]interface{} `json:"rasp_config"  bson:"rasp_config"`
+	GeneralConfig    map[string]interface{} `json:"general_config"  bson:"general_config"`
+	WhiteListConfig  map[string]interface{} `json:"whitelist_config"  bson:"whitelist_config"`
+	AlgorithmConfig  map[string]interface{} `json:"algorithm_config"  bson:"algorithm_config"`
 	SelectedPluginId string                 `json:"selected_plugin_id" bson:"selected_plugin_id"`
-	EmailAlarmConf   *EmailAlarmConf        `json:"email_alarm_conf" bson:"email_alarm_conf"`
-	DingAlarmConf    *DingAlarmConf         `json:"ding_alarm_conf" bson:"ding_alarm_conf"`
-	HttpAlarmConf    *HttpAlarmConf         `json:"http_alarm_conf" bson:"http_alarm_conf"`
+	EmailAlarmConf   EmailAlarmConf         `json:"email_alarm_conf" bson:"email_alarm_conf"`
+	DingAlarmConf    DingAlarmConf          `json:"ding_alarm_conf" bson:"ding_alarm_conf"`
+	HttpAlarmConf    HttpAlarmConf          `json:"http_alarm_conf" bson:"http_alarm_conf"`
 }
 
 type EmailAlarmConf struct {
-	EmailEnable     bool     `json:"email_enable" bson:"email_enable"`
-	EmailServerAddr string   `json:"email_server_addr" bson:"email_server_addr"`
-	EmailFromAddr   string   `json:"email_from_addr" bson:"email_from_addr"`
-	EmailPassword   string   `json:"email_password" bson:"email_password"`
-	EmailSubject    string   `json:"email_subject" bson:"email_subject"`
-	EmailRecvAddr   []string `json:"email_recv_addr" bson:"email_recv_addr"`
+	Enable     bool     `json:"enable" bson:"enable"`
+	ServerAddr string   `json:"server_addr" bson:"server_addr"`
+	UserName   string   `json:"username" bson:"username"`
+	Password   string   `json:"password" bson:"password"`
+	Subject    string   `json:"subject" bson:"subject"`
+	RecvAddr   []string `json:"recv_addr" bson:"recv_addr"`
 }
 
 type DingAlarmConf struct {
-	DingEnable     bool     `json:"ding_enable" bson:"ding_enable"`
-	DingAgentId    string   `json:"ding_agent_id" bson:"ding_agent_id"`
-	DingCorpId     string   `json:"ding_corp_id" bson:"ding_corp_id"`
-	DingCorpSecret string   `json:"ding_corp_secret" bson:"ding_corp_secret"`
-	DingRecvUser   []string `json:"ding_recv_user" bson:"ding_recv_user"`
-	DingRecvPart   []string `json:"ding_recv_part" bson:"ding_recv_part"`
+	Enable     bool     `json:"enable" bson:"enable"`
+	AgentId    string   `json:"agent_id" bson:"agent_id"`
+	CorpId     string   `json:"corp_id" bson:"corp_id"`
+	CorpSecret string   `json:"corp_secret" bson:"corp_secret"`
+	RecvUser   []string `json:"recv_user" bson:"recv_user"`
+	RecvParty  []string `json:"recv_party" bson:"recv_party"`
 }
 
 type HttpAlarmConf struct {
-	HttpEnable   bool     `json:"http_enable" bson:"http_enable"`
-	HttpRecvAddr []string `json:"http_recv_addr" bson:"http_recv_addr"`
+	Enable   bool     `json:"enable" bson:"enable"`
+	RecvAddr []string `json:"recv_addr" bson:"recv_addr"`
 }
 
 type emailTemplateParam struct {
@@ -90,7 +93,28 @@ const (
 )
 
 var (
-	lastAlarmTime = time.Now()
+	lastAlarmTime        = time.Now()
+	DefaultGeneralConfig = map[string]interface{}{
+		"clientip.header":    "ClientIP",
+		"block.status_code":  302,
+		"block.redirect_url": "https://rasp.baidu.com/blocked/?request_id=%request_id%",
+		"block.content_xml": `<?xml version="1.0"?>
+							 <doc>
+							 <error>true</error>
+							 <reason>Request blocked by OpenRASP</reason>
+							 <request_id>%request_id%</request_id>
+							 </doc>`,
+		"block.content.html": `</script><script>
+                              location.href="https://rasp.baidu.com/blocked2/?request_id=%request_id%"
+                              </script>`,
+		"block.content_json":        `{"error":true,"reason": "Request blocked by OpenRASP","request_id": "%request_id%"}`,
+		"plugin.timeout.millis":     100,
+		"body.maxbytes":             4096,
+		"plugin.filter":             true,
+		"plugin.maxstack":           100,
+		"ognl.expression.minlength": 30,
+		"log.maxstack":              10,
+	}
 )
 
 func init() {
@@ -134,15 +158,15 @@ func handleAlarm() {
 		}
 	}()
 	var apps []App
-	_, err := mongo.FindAllWithSelect(appCollectionName, nil, &apps, bson.M{"plugin": -1}, 0, 0)
+	_, err := mongo.FindAllWithSelect(appCollectionName, nil, &apps, bson.M{"plugin": 0}, 0, 0)
 	if err != nil {
-		beego.Error("failed to get apps from mongodb for the alarm: " + err.Error())
+		beego.Error("failed to get apps for the alarm: " + err.Error())
 		return
 	}
 	now := time.Now()
 	for _, app := range apps {
 		total, result, err := logs.SearchLogs(lastAlarmTime.Unix()*1000, now.Unix()*1000, nil, "event_time",
-			1, 3, false, AliasReportIndexName+"-"+app.Id)
+			1, 3, false, logs.AliasAttackIndexName+"-"+app.Id)
 		if err != nil {
 			beego.Error("failed to get alarm from es: " + err.Error())
 			continue
@@ -185,7 +209,12 @@ func generateAppId(app *App) string {
 }
 
 func GetAllApp(page int, perpage int) (count int, result []App, err error) {
-	count, err = mongo.FindAllWithSelect(appCollectionName, nil, &result, bson.M{"plugin.content": -1}, perpage*(page-1), perpage)
+	count, err = mongo.FindAll(appCollectionName, nil, &result, perpage*(page-1), perpage)
+	if err == nil && result != nil {
+		for _, app := range result {
+			HandleApp(&app)
+		}
+	}
 	return
 }
 
@@ -195,12 +224,53 @@ func GetAppByName(name string) (app *App, err error) {
 }
 
 func GetAppById(id string) (app *App, err error) {
-	err = mongo.FindOne(appCollectionName, bson.M{"_id": id}, &app)
+	err = mongo.FindId(appCollectionName, id, &app)
+	if err == nil && app != nil {
+		HandleApp(app)
+	}
 	return
 }
 
-func UpdateAppById(id string, app *App) (err error) {
-	return mongo.UpdateId(appCollectionName, id, app)
+func HandleApp(app *App) {
+	if app.EmailAlarmConf.RecvAddr == nil {
+		app.EmailAlarmConf.RecvAddr = make([]string, 0)
+	}
+	if app.DingAlarmConf.RecvParty == nil {
+		app.DingAlarmConf.RecvParty = make([]string, 0)
+	}
+	if app.DingAlarmConf.RecvUser == nil {
+		app.DingAlarmConf.RecvUser = make([]string, 0)
+	}
+	if app.HttpAlarmConf.RecvAddr == nil {
+		app.HttpAlarmConf.RecvAddr = make([]string, 0)
+	}
+	if app.WhiteListConfig == nil {
+		app.WhiteListConfig = make(map[string]interface{})
+	}
+	if app.GeneralConfig == nil {
+		app.GeneralConfig = make(map[string]interface{})
+	}
+	if app.AlgorithmConfig == nil {
+		app.AlgorithmConfig = make(map[string]interface{})
+	}
+}
+
+func UpdateAppById(id string, doc interface{}) (err error) {
+	return mongo.UpdateId(appCollectionName, id, doc)
+}
+
+func UpdateGenarateConfig(appId string, config map[string]interface{}) error {
+	return UpdateAppById(appId, bson.M{"general_config": config, "config_time": time.Now().UnixNano()})
+}
+
+func UpdateWhiteListConfig(appId string, config map[string]interface{}) error {
+	return UpdateAppById(appId, bson.M{"whitelist_config": config, "config_time": time.Now().UnixNano()})
+}
+
+func UpdateAlgorithmConfig(appId string, config map[string]interface{}) error {
+	//merge
+
+	return UpdateAppById(appId, bson.M{"algorithm_config": config, "config_time": time.Now().UnixNano()})
 }
 
 func RemoveAppById(id string) (err error) {
@@ -209,13 +279,13 @@ func RemoveAppById(id string) (err error) {
 
 func PushAttackAlarm(app *App, total int64, alarms []map[string]interface{}, isTest bool) {
 	if app != nil {
-		if app.DingAlarmConf != nil && app.DingAlarmConf.DingEnable {
+		if app.DingAlarmConf.Enable {
 			PushDingAttackAlarm(app, total, alarms, isTest)
 		}
-		if app.EmailAlarmConf != nil && app.EmailAlarmConf.EmailEnable {
+		if app.EmailAlarmConf.Enable {
 			PushEmailAttackAlarm(app, total, alarms, isTest)
 		}
-		if app.HttpAlarmConf != nil && app.HttpAlarmConf.HttpEnable {
+		if app.HttpAlarmConf.Enable {
 			PushHttpAttackAlarm(app, total, alarms, isTest)
 		}
 	}
@@ -223,31 +293,31 @@ func PushAttackAlarm(app *App, total int64, alarms []map[string]interface{}, isT
 
 func PushEmailAttackAlarm(app *App, total int64, alarms []map[string]interface{}, isTest bool) error {
 	var emailConf = app.EmailAlarmConf
-	if emailConf.EmailFromAddr != "" && len(emailConf.EmailRecvAddr) > 0 && emailConf.EmailServerAddr != "" {
-		auth := smtp.PlainAuth("", emailConf.EmailFromAddr, emailConf.EmailPassword, emailConf.EmailServerAddr)
+	if emailConf.UserName != "" && len(emailConf.RecvAddr) > 0 && emailConf.ServerAddr != "" {
+		auth := smtp.PlainAuth("", emailConf.UserName, emailConf.Password, emailConf.ServerAddr)
 		var subject string
 		var msg string
 		var body string
 		var emailAddr = &mail.Address{}
 		var head = make(map[string]string)
 		hostName, err := os.Hostname()
-		emailAddr.Address = emailConf.EmailFromAddr
+		emailAddr.Address = emailConf.UserName
 		if err == nil {
 			emailAddr.Name = hostName
 		} else {
 			emailAddr.Name = "OpenRASP"
 		}
 		head["From"] = emailAddr.String()
-		head["To"] = strings.Join(emailConf.EmailRecvAddr, ",")
+		head["To"] = strings.Join(emailConf.RecvAddr, ",")
 		head["Content-Type"] = "text/html; charset=UTF-8"
 		if isTest {
 			subject = "OpenRASP ALARM TEST"
 			body = "OpenRASP test message from app: " + app.Name
 		} else {
-			if emailConf.EmailSubject == "" {
+			if emailConf.Subject == "" {
 				subject = "OpenRASP ALARM"
 			} else {
-				subject = emailConf.EmailSubject
+				subject = emailConf.Subject
 			}
 			t, err := template.ParseFiles("views/email.tpl")
 			if err != nil {
@@ -272,8 +342,7 @@ func PushEmailAttackAlarm(app *App, total int64, alarms []map[string]interface{}
 			msg += fmt.Sprintf("%s: %s\r\n", k, v)
 		}
 		msg += "\r\n" + body
-		fmt.Println(msg)
-		err = smtp.SendMail(emailConf.EmailServerAddr, auth, emailConf.EmailFromAddr, emailConf.EmailRecvAddr, []byte(msg))
+		err = smtp.SendMail(emailConf.ServerAddr, auth, emailConf.UserName, emailConf.RecvAddr, []byte(msg))
 		if err != nil {
 			beego.Error("failed to push email alarms: " + err.Error())
 			return err
@@ -285,7 +354,7 @@ func PushEmailAttackAlarm(app *App, total int64, alarms []map[string]interface{}
 
 func PushHttpAttackAlarm(app *App, total int64, alarms []map[string]interface{}, isTest bool) error {
 	var httpConf = app.HttpAlarmConf
-	if len(httpConf.HttpRecvAddr) != 0 {
+	if len(httpConf.RecvAddr) != 0 {
 		body := make(map[string]interface{})
 		body["app_id"] = app.Id
 		if isTest {
@@ -293,7 +362,7 @@ func PushHttpAttackAlarm(app *App, total int64, alarms []map[string]interface{},
 		} else {
 			body["data"] = alarms
 		}
-		for _, addr := range httpConf.HttpRecvAddr {
+		for _, addr := range httpConf.RecvAddr {
 			request := httplib.Post(addr)
 			request.JSONBody(body)
 			request.SetTimeout(10*time.Second, 10*time.Second)
@@ -311,21 +380,21 @@ func PushHttpAttackAlarm(app *App, total int64, alarms []map[string]interface{},
 		}
 	}
 	beego.Debug("succeed in pushing http alarm for app: " + app.Name + " ,with urls: " +
-		fmt.Sprintf("%v", httpConf.HttpRecvAddr))
+		fmt.Sprintf("%v", httpConf.RecvAddr))
 	return nil
 }
 
 func PushDingAttackAlarm(app *App, total int64, alarms []map[string]interface{}, isTest bool) error {
 	var dingCong = app.DingAlarmConf
-	if dingCong.DingCorpId != "" && dingCong.DingCorpSecret != "" && dingCong.DingAgentId != "" &&
-		!(len(dingCong.DingRecvPart) == 0 && len(dingCong.DingRecvUser) == 0) {
+	if dingCong.CorpId != "" && dingCong.CorpSecret != "" && dingCong.AgentId != "" &&
+		!(len(dingCong.RecvParty) == 0 && len(dingCong.RecvUser) == 0) {
 
 		request := httplib.Get("https://oapi.dingtalk.com/gettoken")
 		request.SetTimeout(10*time.Second, 10*time.Second)
-		request.Param("corpid", dingCong.DingCorpId)
-		request.Param("corpsecret", dingCong.DingCorpSecret)
+		request.Param("corpid", dingCong.CorpId)
+		request.Param("corpsecret", dingCong.CorpSecret)
 		response, err := request.Response()
-		errMsg := "failed to get ding ding token with corp id: " + dingCong.DingCorpId
+		errMsg := "failed to get ding ding token with corp id: " + dingCong.CorpId
 		if err != nil {
 			beego.Error(errMsg + ", with error: " + err.Error())
 			return err
@@ -355,20 +424,20 @@ func PushDingAttackAlarm(app *App, total int64, alarms []map[string]interface{},
 			dingText = "来自 OpenRAS 的报警\n共有 " + strconv.FormatInt(total, 10) + " 条报警信息来自 APP：" + app.Name + "，详细信息：" +
 				beego.AppConfig.String("Domain") + "/logs/search?page=1&perpage=15&app_id=" + app.Id
 		}
-		if len(dingCong.DingRecvUser) > 0 {
-			body["touser"] = strings.Join(dingCong.DingRecvUser, "|")
+		if len(dingCong.RecvUser) > 0 {
+			body["touser"] = strings.Join(dingCong.RecvUser, "|")
 		}
-		if len(dingCong.DingRecvPart) > 0 {
-			body["toparty"] = strings.Join(dingCong.DingRecvPart, "|")
+		if len(dingCong.RecvParty) > 0 {
+			body["toparty"] = strings.Join(dingCong.RecvParty, "|")
 		}
-		body["agentid"] = dingCong.DingAgentId
+		body["agentid"] = dingCong.AgentId
 		body["msgtype"] = "text"
 		body["text"] = map[string]string{"content": dingText}
 		request = httplib.Post("https://oapi.dingtalk.com/message/send?access_token=" + token)
 		request.JSONBody(body)
 		request.SetTimeout(10*time.Second, 10*time.Second)
 		response, err = request.Response()
-		errMsg = "failed to push ding ding alarms with corp id: " + dingCong.DingCorpId
+		errMsg = "failed to push ding ding alarms with corp id: " + dingCong.CorpId
 		if err != nil {
 			beego.Error(errMsg + ", with error: " + err.Error())
 			return err
@@ -389,6 +458,6 @@ func PushDingAttackAlarm(app *App, total int64, alarms []map[string]interface{},
 			return err
 		}
 	}
-	beego.Debug("succeed in pushing ding ding alarm for app: " + app.Name + " ,with corp id: " + dingCong.DingCorpId)
+	beego.Debug("succeed in pushing ding ding alarm for app: " + app.Name + " ,with corp id: " + dingCong.CorpId)
 	return nil
 }

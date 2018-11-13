@@ -25,3 +25,7 @@ func (o *ErrorController) Error404() {
 func (o *ErrorController) Error500() {
 	o.ServeError(500)
 }
+
+func (o *ErrorController) Error502() {
+	o.ServeError(502)
+}

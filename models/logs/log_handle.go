@@ -42,13 +42,32 @@ type AggrFieldParam struct {
 	Size      int    `json:"size"`
 }
 
-type SearchLogParam struct {
-	AppId     string                 `json:"app_id"`
-	StartTime int64                  `json:"start_time"`
-	EndTime   int64                  `json:"end_time"`
-	Page      int                    `json:"page"`
-	Perpage   int                    `json:"perpage"`
-	Data      map[string]interface{} `json:"data"`
+type SearchAttackParam struct {
+	Page    int `json:"page"`
+	Perpage int `json:"perpage"`
+	Data *struct {
+		AppId        string   `json:"app_id,omitempty"`
+		StartTime    int64    `json:"start_time"`
+		EndTime      int64    `json:"end_time"`
+		RaspId       string   `json:"rasp_id,omitempty"`
+		HostName     string   `json:"server_hostname,omitempty"`
+		AttackSource string   `json:"attack_source,omitempty"`
+		AttackUrl    string   `json:"url,omitempty"`
+		AttackType   []string `json:"attack_type,omitempty"`
+	} `json:"data"`
+}
+
+type SearchPolicyParam struct {
+	Page    int `json:"page"`
+	Perpage int `json:"perpage"`
+	Data *struct {
+		AppId     string   `json:"app_id,omitempty"`
+		StartTime int64    `json:"start_time"`
+		EndTime   int64    `json:"end_time"`
+		RaspId    string   `json:"rasp_id,omitempty"`
+		HostName  string   `json:"server_hostname,omitempty"`
+		PolicyId  []string `json:"policy_id,omitempty"`
+	} `json:"data"`
 }
 
 var (
@@ -117,6 +136,12 @@ func SearchLogs(startTime int64, endTime int64, query map[string]interface{}, so
 	if query != nil {
 		for key, value := range query {
 			if key == "attack_type" {
+				if v, ok := value.([]interface{}); ok {
+					queries = append(queries, elastic.NewTermsQuery(key, v...))
+				} else {
+					queries = append(queries, elastic.NewTermQuery(key, value))
+				}
+			} else if key == "policy_id" {
 				if v, ok := value.([]interface{}); ok {
 					queries = append(queries, elastic.NewTermsQuery(key, v...))
 				} else {

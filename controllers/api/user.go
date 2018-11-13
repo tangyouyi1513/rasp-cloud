@@ -53,7 +53,7 @@ func (o *UserController) Login() {
 			o.ServeError(http.StatusUnauthorized, "failed to create cookie: "+err.Error())
 		}
 		o.Ctx.SetCookie(models.AuthCookieName, cookie)
-		o.ServeWithoutData()
+		o.ServeWithEmptyData()
 	} else {
 		o.ServeError(http.StatusUnauthorized, "username or password is incorrect")
 	}
@@ -62,5 +62,5 @@ func (o *UserController) Login() {
 // @router /logout [get]
 func (o *UserController) Logout() {
 	o.Ctx.SetCookie(models.AuthCookieName, "")
-	o.ServeWithoutData()
+	o.ServeWithEmptyData()
 }

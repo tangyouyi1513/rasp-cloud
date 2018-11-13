@@ -19,13 +19,14 @@ import (
 	"net/http"
 	"rasp-cloud/models"
 	"encoding/json"
+	"math"
 )
 
 type RaspController struct {
 	controllers.BaseController
 }
 
-// @router /find [post]
+// @router /search [post]
 func (o *RaspController) Post() {
 	var data map[string]interface{}
 	err := json.Unmarshal(o.Ctx.Input.RequestBody, &data)
@@ -68,11 +69,16 @@ func (o *RaspController) Post() {
 	}
 	total, rasps, err := models.FindRasp(raspData, int(page), int(perpage))
 	if err != nil {
-		o.ServeError(http.StatusBadRequest, "failed to get rasp from mongodb: "+err.Error())
+		o.ServeError(http.StatusBadRequest, "failed to get rasp: "+err.Error())
+	}
+	if rasps == nil {
+		rasps = make([]*models.Rasp, 0)
 	}
 	var result = make(map[string]interface{})
 	result["total"] = total
-	result["count"] = len(rasps)
+	result["total_page"] = math.Ceil(float64(total) / float64(perpage))
+	result["page"] = page
+	result["perpage"] = perpage
 	result["data"] = rasps
 	o.Serve(result)
 }
@@ -87,9 +93,16 @@ func (o *RaspController) Delete() {
 	if rasp.Id == "" {
 		o.ServeError(http.StatusBadRequest, "the id cannot be empty")
 	}
+	rasp, err = models.GetRaspById(rasp.Id)
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "failed to get rasp by id: "+err.Error())
+	}
+	if rasp.Online {
+		o.ServeError(http.StatusBadRequest, "can not delete online rasp")
+	}
 	err = models.RemoveRaspById(rasp.Id)
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to remove rasp： "+err.Error())
 	}
-	o.ServeWithoutData()
+	o.ServeWithEmptyData()
 }

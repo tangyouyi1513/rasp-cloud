@@ -75,9 +75,9 @@ func (o *RaspController) Post() {
 	if len(rasp.ServerVersion) >= 50 {
 		o.ServeError(http.StatusBadRequest, "the length of rasp server version must be less than 50")
 	}
-	if rasp.LocalIp != "" {
+	if rasp.RegisterIp != "" {
 		valid := validation.Validation{}
-		if result := valid.IP(rasp.LocalIp, "IP"); !result.Ok {
+		if result := valid.IP(rasp.RegisterIp, "IP"); !result.Ok {
 			o.ServeError(http.StatusBadRequest, "rasp primary_ip format error: "+result.Error.Message)
 		}
 	}

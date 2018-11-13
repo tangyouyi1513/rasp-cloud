@@ -19,6 +19,7 @@ import (
 	"time"
 	"github.com/astaxie/beego"
 	"rasp-cloud/tools"
+	"gopkg.in/mgo.v2/bson"
 )
 
 var (
@@ -125,7 +126,7 @@ func FindAllBySort(collection string, query interface{}, skip int, limit int, re
 func UpdateId(collection string, id interface{}, doc interface{}) error {
 	newSession := NewSession()
 	defer newSession.Close()
-	return newSession.DB(DbName).C(collection).UpdateId(id, doc)
+	return newSession.DB(DbName).C(collection).UpdateId(id, bson.M{"$set": doc})
 }
 
 func RemoveId(collection string, id interface{}) error {

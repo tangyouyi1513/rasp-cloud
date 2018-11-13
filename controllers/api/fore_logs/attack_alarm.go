@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"rasp-cloud/models"
 	"rasp-cloud/models/logs"
+	"math"
 )
 
 // Operations about attack alarm message
@@ -105,26 +106,29 @@ func (o *AttackAlarmController) AggregationWithUserAgent() {
 
 // @router /search [post]
 func (o *AttackAlarmController) Search() {
-	var param = &logs.SearchLogParam{}
+	var param = &logs.SearchAttackParam{}
 	err := json.Unmarshal(o.Ctx.Input.RequestBody, &param)
-	if param.AppId != "" {
-		_, err := models.GetAppById(param.AppId)
-		if err != nil {
-			o.ServeError(http.StatusBadRequest, "cannot get the app: "+param.AppId)
-		}
-	} else {
-		param.AppId = "*"
-	}
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "json decode error： "+err.Error())
 	}
-	if param.StartTime < 0 {
-		o.ServeError(http.StatusBadRequest, "start_time can not be less than 0")
+	if param.Data == nil {
+		o.ServeError(http.StatusBadRequest, "search data can not be empty")
 	}
-	if param.EndTime < 0 {
-		o.ServeError(http.StatusBadRequest, "end_time can not be less than 0")
+	if param.Data.AppId != "" {
+		_, err := models.GetAppById(param.Data.AppId)
+		if err != nil {
+			o.ServeError(http.StatusBadRequest, "cannot get the app: "+param.Data.AppId)
+		}
+	} else {
+		param.Data.AppId = "*"
 	}
-	if param.StartTime > param.EndTime {
+	if param.Data.StartTime <= 0 {
+		o.ServeError(http.StatusBadRequest, "start_time must be greater than 0")
+	}
+	if param.Data.EndTime <= 0 {
+		o.ServeError(http.StatusBadRequest, "end_time must be greater than 0")
+	}
+	if param.Data.StartTime > param.Data.EndTime {
 		o.ServeError(http.StatusBadRequest, "start_time cannot be greater than end_time")
 	}
 	if param.Page <= 0 {
@@ -133,14 +137,29 @@ func (o *AttackAlarmController) Search() {
 	if param.Perpage <= 0 {
 		o.ServeError(http.StatusBadRequest, "perpage must be greater than 0")
 	}
-	total, result, err := logs.SearchLogs(param.StartTime, param.EndTime, param.Data, "event_time",
-		param.Page, param.Perpage, false, logs.AliasAttackIndexName+"-"+param.AppId)
+	content, err := json.Marshal(param.Data)
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "failed to encode search data: "+err.Error())
+	}
+	var searchData map[string]interface{}
+	err = json.Unmarshal(content, &searchData)
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "failed to decode search data: "+err.Error())
+	}
+	delete(searchData, "start_time")
+	delete(searchData, "end_time")
+	delete(searchData, "app_id")
+	total, result, err := logs.SearchLogs(param.Data.StartTime, param.Data.EndTime, searchData, "event_time",
+		param.Page, param.Perpage, false, logs.AliasAttackIndexName+"-"+param.Data.AppId)
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to search data from es: "+err.Error())
 	}
 	o.Serve(map[string]interface{}{
-		"total": total,
-		"data":  result,
+		"total":      total,
+		"total_page": math.Ceil(float64(total) / float64(param.Perpage)),
+		"page":       param.Page,
+		"perpage":    param.Perpage,
+		"data":       result,
 	})
 }
 

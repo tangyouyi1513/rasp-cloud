@@ -27,13 +27,13 @@ import (
 )
 
 type Plugin struct {
-	Id           string `json:"id,omitempty" bson:"_id"`
-	AppId        string `json:"app_id" bson:"app_id"`
-	UploadTime   int64  `json:"upload_time" bson:"upload_time"`
-	Version      string `json:"version" bson:"version"`
-	Md5          string `json:"md5" bson:"md5"`
-	Content      string `json:"plugin,omitempty" bson:"content"`
-	ConfigFormat string `json:"config_format" bson:"config_format"`
+	Id              string                 `json:"id,omitempty" bson:"_id"`
+	AppId           string                 `json:"app_id" bson:"app_id"`
+	UploadTime      int64                  `json:"upload_time" bson:"upload_time"`
+	Version         string                 `json:"version" bson:"version"`
+	Md5             string                 `json:"md5" bson:"md5"`
+	Content         string                 `json:"plugin,omitempty" bson:"content"`
+	AlgorithmConfig map[string]interface{} `json:"algorithm_config" bson:"algorithm_config"`
 }
 
 const (
@@ -83,15 +83,15 @@ func createIndex() {
 	}
 }
 
-func AddPlugin(version string, content []byte, appId string, configFormat string) (plugin *Plugin, err error) {
+func AddPlugin(version string, content []byte, appId string, algorithmConfig map[string]interface{}) (plugin *Plugin, err error) {
 	newMd5 := fmt.Sprintf("%x", md5.Sum(content))
 	plugin = &Plugin{
-		Version:      version,
-		Md5:          newMd5, Content: string(content),
-		UploadTime:   time.Now().UnixNano() / 1000000,
-		ConfigFormat: configFormat,
-		AppId:        appId,
-		Id:           appId + newMd5,
+		Version:         version,
+		Md5:             newMd5, Content: string(content),
+		UploadTime:      time.Now().UnixNano() / 1000000,
+		AlgorithmConfig: algorithmConfig,
+		AppId:           appId,
+		Id:              appId + newMd5,
 	}
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -147,8 +147,11 @@ func GetPluginsByApp(appId string, skip int, limit int) (total int, plugins []Pl
 	if err != nil {
 		return
 	}
-	err = newSession.DB(mongo.DbName).C(pluginCollectionName).Find(bson.M{"app_id": appId}).
+	err = newSession.DB(mongo.DbName).C(pluginCollectionName).Find(bson.M{"app_id": appId}).Select(bson.M{"content": 0}).
 		Sort("-upload_time").Skip(skip).Limit(limit).All(&plugins)
+	if plugins == nil {
+		plugins = make([]Plugin, 0)
+	}
 	return
 }
 

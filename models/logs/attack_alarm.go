@@ -163,6 +163,18 @@ var (
 					},
 					"plugin_message": {
 						"type": "keyword"
+					},
+					"server_nic": {
+						"type": "nested",
+						"properties": {
+							"name": {
+								"type": "keyword",
+								"ignore_above": 256
+							},
+							"ip": {
+								"type": "ip"
+							}
+						}
 					}
 				}
 			}
@@ -172,7 +184,7 @@ var (
 )
 
 func AddAttackAlarm(alarm map[string]interface{}) error {
-	if stack, ok := alarm["stack_trace"]; ok && stack != nil {
+	if stack, ok := alarm["stack_trace"]; ok && stack != nil && stack != "" {
 		_, ok = stack.(string)
 		if ok {
 			alarm["stack_md5"] = fmt.Sprintf("%x", md5.Sum([]byte(stack.(string))))

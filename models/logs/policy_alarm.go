@@ -89,7 +89,7 @@ var (
 						"type": "keyword",
 						"ignore_above": 64
 					},
-					"param": {
+					"policy_params": {
 						"type": "object",
 						"enabled":"false"
 					}
@@ -101,7 +101,7 @@ var (
 )
 
 func AddPolicyAlarm(alarm map[string]interface{}) error {
-	if stack, ok := alarm["stack_trace"]; ok && stack != nil {
+	if stack, ok := alarm["stack_trace"]; ok && stack != nil && stack != "" {
 		_, ok = stack.(string)
 		if ok {
 			alarm["stack_md5"] = fmt.Sprintf("%x", md5.Sum([]byte(stack.(string))))
@@ -109,7 +109,7 @@ func AddPolicyAlarm(alarm map[string]interface{}) error {
 	}
 	content, err := json.Marshal(alarm)
 	if err == nil {
-		AddAlarmFunc(AttackAlarmType, content)
+		AddAlarmFunc(PolicyAlarmType, content)
 	}
 	return err
 }
