@@ -82,7 +82,7 @@ func (o *HeartbeatController) Post() {
 		for k, v := range app.WhiteListConfig {
 			app.GeneralConfig[k] = v
 		}
-		app.GeneralConfig["algorithm_config"] = app.AlgorithmConfig
+		app.GeneralConfig["algorithm_config"] = selectedPlugin.AlgorithmConfig
 		result["plugin"] = selectedPlugin
 		result["config_time"] = app.ConfigTime
 		result["config"] = app.GeneralConfig

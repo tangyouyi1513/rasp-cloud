@@ -165,22 +165,25 @@ func (o *AppController) UpdateAppWhiteListConfig(id string, whiteListConfig map[
 }
 
 // @router /algorithm/config [post]
-func (o *AppController) UpdateAppAlgorithmConfig(id string, algorithmConfig map[string]interface{}) {
-	var param appConfigParam
+func (o *AppController) UpdateAppAlgorithmConfig() {
+	var param struct {
+		PluginId string                 `json:"plugin_id"`
+		Config   map[string]interface{} `json:"config"`
+	}
 	err := json.Unmarshal(o.Ctx.Input.RequestBody, &param)
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "json format error： "+err.Error())
 	}
-	if param.AppId == "" {
+	if param.PluginId == "" {
 		o.ServeError(http.StatusBadRequest, "app_id can not be empty")
 	}
 	if param.Config == nil {
 		o.ServeError(http.StatusBadRequest, "config can not be empty")
 	}
-	o.validateWhiteListConfig(param.Config)
-	err = models.UpdateAlgorithmConfig(param.AppId, param.Config)
+	o.validateAppConfig(param.Config)
+	err = models.UpdateAlgorithmConfig(param.PluginId, param.Config)
 	if err != nil {
-		o.ServeError(http.StatusBadRequest, "failed to update app whitelist config: "+err.Error())
+		o.ServeError(http.StatusBadRequest, "failed to update algorithm config: "+err.Error())
 	}
 	o.ServeWithEmptyData()
 }
@@ -230,7 +233,6 @@ func (o *AppController) Post() {
 	if app.DingAlarmConf.Enable {
 		o.validDingConf(&app.DingAlarmConf)
 	}
-	models.HandleApp(app)
 	if app.GeneralConfig != nil {
 		o.validateAppConfig(app.GeneralConfig)
 		configTime := time.Now().UnixNano()
@@ -246,12 +248,65 @@ func (o *AppController) Post() {
 	} else {
 		app.WhiteListConfig = make(map[string]interface{})
 	}
-
+	models.HandleApp(app)
 	app, err = models.AddApp(app)
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "create app failed: "+err.Error())
 	}
 	o.Serve(app)
+}
+
+// @router /config [post]
+func (o *AppController) ConfigApp() {
+	var param struct {
+		AppId       string `json:"app_id"`
+		Language    string `json:"language,omitempty"`
+		Name        string `json:"name,omitempty"`
+		Description string `json:"description,omitempty"`
+	}
+	err := json.Unmarshal(o.Ctx.Input.RequestBody, &param)
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "json format error： "+err.Error())
+	}
+	if param.AppId == "" {
+		o.ServeError(http.StatusBadRequest, "app_id can not be empty")
+	}
+	_, err = models.GetAppById(param.AppId)
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "failed to get app: "+err.Error())
+	}
+	if param.Name == "" {
+		o.ServeError(http.StatusBadRequest, "app name cannot be empty")
+	}
+	if len(param.Name) > 64 {
+		o.ServeError(http.StatusBadRequest, "the length of app name cannot be greater than 64")
+	}
+	if param.Language == "" {
+		o.ServeError(http.StatusBadRequest, "app language cannot be empty")
+	}
+	if len(param.Language) > 64 {
+		o.ServeError(http.StatusBadRequest, "the length of app language name cannot be greater than 64")
+	}
+	languageSupported := false
+	for _, language := range supportLanguages {
+		if param.Language == language {
+			languageSupported = true
+			break
+		}
+	}
+	if !languageSupported {
+		o.ServeError(http.StatusBadRequest, "can not support the language: "+param.Language)
+	}
+	if len(param.Description) > 1024 {
+		o.ServeError(http.StatusBadRequest, "the length of app description can not be greater than 1024")
+	}
+
+	err = models.UpdateAppById(param.AppId, bson.M{
+		"name": param.Name, "language": param.Language, "description": param.Description})
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "failed to update app config: "+err.Error())
+	}
+	o.ServeWithEmptyData()
 }
 
 func (o *AppController) validEmailConf(conf *models.EmailAlarmConf) {
@@ -352,7 +407,10 @@ func (o *AppController) Delete() {
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to remove rasp by app_id： "+err.Error())
 	}
-
+	err = models.RemovePluginByAppId(app.Id)
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "failed to remove plugin by app_id： "+err.Error())
+	}
 	o.ServeWithEmptyData()
 }
 

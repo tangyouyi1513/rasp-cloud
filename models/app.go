@@ -45,7 +45,6 @@ type App struct {
 	ConfigTime       int64                  `json:"config_time"  bson:"config_time"`
 	GeneralConfig    map[string]interface{} `json:"general_config"  bson:"general_config"`
 	WhiteListConfig  map[string]interface{} `json:"whitelist_config"  bson:"whitelist_config"`
-	AlgorithmConfig  map[string]interface{} `json:"algorithm_config"  bson:"algorithm_config"`
 	SelectedPluginId string                 `json:"selected_plugin_id" bson:"selected_plugin_id"`
 	EmailAlarmConf   EmailAlarmConf         `json:"email_alarm_conf" bson:"email_alarm_conf"`
 	DingAlarmConf    DingAlarmConf          `json:"ding_alarm_conf" bson:"ding_alarm_conf"`
@@ -250,9 +249,6 @@ func HandleApp(app *App) {
 	if app.GeneralConfig == nil {
 		app.GeneralConfig = make(map[string]interface{})
 	}
-	if app.AlgorithmConfig == nil {
-		app.AlgorithmConfig = make(map[string]interface{})
-	}
 }
 
 func UpdateAppById(id string, doc interface{}) (err error) {
@@ -267,10 +263,8 @@ func UpdateWhiteListConfig(appId string, config map[string]interface{}) error {
 	return UpdateAppById(appId, bson.M{"whitelist_config": config, "config_time": time.Now().UnixNano()})
 }
 
-func UpdateAlgorithmConfig(appId string, config map[string]interface{}) error {
-	//merge
-
-	return UpdateAppById(appId, bson.M{"algorithm_config": config, "config_time": time.Now().UnixNano()})
+func UpdateApp(appId string, config map[string]interface{}) error {
+	return UpdateAppById(appId, config)
 }
 
 func RemoveAppById(id string) (err error) {

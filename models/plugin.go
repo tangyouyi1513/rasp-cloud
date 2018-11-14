@@ -24,6 +24,9 @@ import (
 	"rasp-cloud/tools"
 	"gopkg.in/mgo.v2"
 	"time"
+	"regexp"
+	"encoding/json"
+	"errors"
 )
 
 type Plugin struct {
@@ -83,15 +86,16 @@ func createIndex() {
 	}
 }
 
-func AddPlugin(version string, content []byte, appId string, algorithmConfig map[string]interface{}) (plugin *Plugin, err error) {
+func AddPlugin(version string, content []byte, appId string,
+	defaultAlgorithmConfig map[string]interface{}) (plugin *Plugin, err error) {
 	newMd5 := fmt.Sprintf("%x", md5.Sum(content))
 	plugin = &Plugin{
 		Version:         version,
 		Md5:             newMd5, Content: string(content),
 		UploadTime:      time.Now().UnixNano() / 1000000,
-		AlgorithmConfig: algorithmConfig,
 		AppId:           appId,
 		Id:              appId + newMd5,
+		AlgorithmConfig: defaultAlgorithmConfig,
 	}
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -135,6 +139,27 @@ func SetSelectedPlugin(appId string, pluginId string) error {
 	return mongo.UpdateId(appCollectionName, appId, app)
 }
 
+func UpdateAlgorithmConfig(pluginId string, config map[string]interface{}) error {
+	plugin, err := GetPluginById(pluginId)
+	if err != nil {
+		return err
+	}
+	content, err := json.Marshal(config)
+	if err != nil {
+		return err
+	}
+	regex := `//\s*BEGIN\s*ALGORITHM\s*CONFIG\s*//[\W\w]*?//\s*END\s*ALGORITHM\s*CONFIG\s*//`
+	newContent := "// BEGIN ALGORITHM CONFIG //\n\n" +
+		"var algorithmConfig = " +
+		string(content) + "\n\n// END ALGORITHM CONFIG //"
+	if variable := regexp.MustCompile(regex).
+		FindString(plugin.Content); len(variable) <= 0 {
+		return errors.New("failed to find algorithmConfig variable")
+	}
+	algorithmContent := regexp.MustCompile(regex).ReplaceAllString(plugin.Content, newContent)
+	return mongo.UpdateId(pluginCollectionName, plugin.Id, bson.M{"content": algorithmContent, "algorithm_config": config})
+}
+
 func GetPluginById(id string) (plugin *Plugin, err error) {
 	err = mongo.FindId(pluginCollectionName, id, &plugin)
 	return
@@ -166,6 +191,10 @@ func DeletePlugin(pluginId string) error {
 	mutex.Lock()
 	defer mutex.Unlock()
 	return mongo.RemoveId(pluginCollectionName, pluginId)
+}
+
+func RemovePluginByAppId(appId string) error {
+	return mongo.RemoveAll(pluginCollectionName, bson.M{"app_id": appId})
 }
 
 func NewPlugin(version string, content []byte, appId string) *Plugin {

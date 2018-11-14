@@ -73,13 +73,11 @@ func (o *PluginController) Upload() {
 		o.ServeError(http.StatusBadRequest, "failed to read the plugin.js in the zip file: "+err.Error())
 	}
 	var newVersion string
-	if versionArr := regexp.MustCompile(`'.+'|".+"`).FindAllString(firstLine, -1); len(versionArr) > 0 {
-		newVersion = versionArr[0][1 : len(versionArr[0])-1]
-	} else {
+	if newVersion = regexp.MustCompile(`'.+'|".+"`).FindString(firstLine); newVersion == "" {
 		o.ServeError(http.StatusBadRequest, "failed to find the plugin version: "+err.Error())
 	}
-	var algorithmStartMsg = "// BEGIN ALGORITHM CONFIG //"
-	var algorithmEndMsg = "// END ALGORITHM CONFIG //"
+	algorithmStartMsg := "// BEGIN ALGORITHM CONFIG //"
+	algorithmEndMsg := "// END ALGORITHM CONFIG //"
 	algorithmStart := bytes.Index(pluginContent, []byte(algorithmStartMsg))
 	if algorithmStart < 0 {
 		o.ServeError(http.StatusBadRequest, "failed to find the start of algorithmConfig variable: "+algorithmStartMsg)

@@ -134,3 +134,10 @@ func RemoveId(collection string, id interface{}) error {
 	defer newSession.Close()
 	return newSession.DB(DbName).C(collection).RemoveId(id)
 }
+
+func RemoveAll(collection string, selector interface{}) error {
+	newSession := NewSession()
+	defer newSession.Close()
+	_, err := newSession.DB(DbName).C(collection).RemoveAll(selector)
+	return err
+}

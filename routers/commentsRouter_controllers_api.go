@@ -28,10 +28,15 @@ func init() {
 			Method: "UpdateAppAlgorithmConfig",
 			Router: `/algorithm/config`,
 			AllowHTTPMethods: []string{"post"},
-			MethodParams: param.Make(
-				param.New("id"),
-				param.New("algorithmConfig"),
-			),
+			MethodParams: param.Make(),
+			Params: nil})
+
+	beego.GlobalControllerRouter["rasp-cloud/controllers/api:AppController"] = append(beego.GlobalControllerRouter["rasp-cloud/controllers/api:AppController"],
+		beego.ControllerComments{
+			Method: "ConfigApp",
+			Router: `/config`,
+			AllowHTTPMethods: []string{"post"},
+			MethodParams: param.Make(),
 			Params: nil})
 
 	beego.GlobalControllerRouter["rasp-cloud/controllers/api:AppController"] = append(beego.GlobalControllerRouter["rasp-cloud/controllers/api:AppController"],

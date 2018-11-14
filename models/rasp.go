@@ -76,7 +76,7 @@ func GetRaspByAppId(id string, page int, perpage int) (count int, result []*Rasp
 }
 
 func RemoveRaspByAppId(appId string) (err error) {
-	return mongo.RemoveId(raspCollectionName, appId)
+	return mongo.RemoveAll(raspCollectionName, bson.M{"app_id": appId})
 }
 
 func FindRasp(selector map[string]interface{}, page int, perpage int) (count int, result []*Rasp, err error) {
@@ -98,7 +98,7 @@ func GetRaspById(id string) (rasp *Rasp, err error) {
 }
 
 func HandleRasp(rasp *Rasp) {
-	if rasp.LastHeartbeatTime-time.Now().Unix() > 180 {
+	if time.Now().Unix()-rasp.LastHeartbeatTime > 180 {
 		rasp.Online = false
 	} else {
 		rasp.Online = true
