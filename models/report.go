@@ -75,7 +75,8 @@ func GetHistoryRequestSum(startTime int64, endTime int64, interval string, timeZ
 	defer cancel()
 	timeAggrName := "aggr_time"
 	sumAggrName := "request_sum"
-	timeAggr := elastic.NewDateHistogramAggregation().Field("time").TimeZone(timeZone).Interval(interval)
+	timeAggr := elastic.NewDateHistogramAggregation().Field("time").TimeZone(timeZone).
+		Interval(interval).ExtendedBoundsMin(startTime)
 	requestSumAggr := elastic.NewSumAggregation().Field("request_sum")
 	timeAggr.SubAggregation(sumAggrName, requestSumAggr)
 	timeQuery := elastic.NewRangeQuery("time").Gte(startTime).Lte(endTime)

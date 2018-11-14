@@ -103,7 +103,7 @@ var (
 							 <reason>Request blocked by OpenRASP</reason>
 							 <request_id>%request_id%</request_id>
 							 </doc>`,
-		"block.content.html": `</script><script>
+		"block.content_html": `</script><script>
                               location.href="https://rasp.baidu.com/blocked2/?request_id=%request_id%"
                               </script>`,
 		"block.content_json":        `{"error":true,"reason": "Request blocked by OpenRASP","request_id": "%request_id%"}`,

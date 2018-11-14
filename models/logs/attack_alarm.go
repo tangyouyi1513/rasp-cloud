@@ -225,16 +225,35 @@ func setAlarmLocation(alarm map[string]interface{}) {
 }
 
 func AggregationAttackWithTime(startTime int64, endTime int64, interval string, timeZone string,
-	appId string) ([]map[string]interface{}, error) {
+	appId string) (map[string]interface{}, error) {
+	blockData, err := aggregationInterceptState(startTime, endTime, interval, timeZone, appId, "block")
+	if err != nil {
+		return nil, err
+	}
+	logData, err := aggregationInterceptState(startTime, endTime, interval, timeZone, appId, "log")
+	if err != nil {
+		return nil, err
+	}
+	result := map[string]interface{}{
+		"block": blockData,
+		"log":   logData,
+	}
+	return result, nil
+}
+
+func aggregationInterceptState(startTime int64, endTime int64, interval string, timeZone string,
+	appId string, interceptState string) ([]map[string]interface{}, error) {
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(10*time.Second))
 	defer cancel()
-	timeAggr := elastic.NewDateHistogramAggregation().Field("event_time").TimeZone(timeZone).Interval(interval)
+	timeAggr := elastic.NewDateHistogramAggregation().Field("event_time").TimeZone(timeZone).
+	Interval(interval).ExtendedBoundsMin(startTime)
+	interceptStateQuery := elastic.NewTermQuery("intercept_state", interceptState)
 	timeQuery := elastic.NewRangeQuery("event_time").Gte(startTime).Lte(endTime)
 	aggrName := "aggr_time"
 	aggrResult, err := es.ElasticClient.Search(AliasAttackIndexName + "-" + appId).
-		Query(timeQuery).
+		Query(elastic.NewBoolQuery().Must(timeQuery, interceptStateQuery)).
 		Aggregation(aggrName, timeAggr).
-		Size(0).
+		Size(512).
 		Do(ctx)
 	if err != nil {
 		return nil, err
@@ -245,7 +264,7 @@ func AggregationAttackWithTime(startTime int64, endTime int64, interval string, 
 			result = make([]map[string]interface{}, len(terms.Buckets))
 			for index, item := range terms.Buckets {
 				result[index] = make(map[string]interface{})
-				result[index]["start_time"] = item.Key
+				result[index]["time"] = item.Key
 				result[index]["count"] = item.DocCount
 			}
 		}
@@ -254,7 +273,7 @@ func AggregationAttackWithTime(startTime int64, endTime int64, interval string, 
 }
 
 func AggregationAttackWithUserAgent(startTime int64, endTime int64, size int,
-	appId string) ([]map[string]interface{}, error) {
+	appId string) ([][]interface{}, error) {
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(10*time.Second))
 	defer cancel()
 	uaAggr := elastic.NewTermsAggregation().Field("user_agent").Size(size).OrderByCount(false)
@@ -263,19 +282,19 @@ func AggregationAttackWithUserAgent(startTime int64, endTime int64, size int,
 	aggrResult, err := es.ElasticClient.Search(AliasAttackIndexName + "-" + appId).
 		Query(timeQuery).
 		Aggregation(aggrName, uaAggr).
-		Size(0).
+		Size(512).
 		Do(ctx)
 	if err != nil {
 		return nil, err
 	}
-	result := make([]map[string]interface{}, 0)
+	result := make([][]interface{}, 0)
 	if aggrResult != nil && aggrResult.Aggregations != nil {
 		if terms, ok := aggrResult.Aggregations.Terms(aggrName); ok && terms.Buckets != nil {
-			result = make([]map[string]interface{}, len(terms.Buckets))
+			result = make([][]interface{}, len(terms.Buckets))
 			for index, item := range terms.Buckets {
-				result[index] = make(map[string]interface{})
-				result[index]["type"] = item.Key
-				result[index]["count"] = item.DocCount
+				result[index] = make([]interface{}, 2, 2)
+				result[index][0] = item.Key
+				result[index][1] = item.DocCount
 			}
 		}
 	}
@@ -283,7 +302,7 @@ func AggregationAttackWithUserAgent(startTime int64, endTime int64, size int,
 }
 
 func AggregationAttackWithType(startTime int64, endTime int64, size int,
-	appId string) ([]map[string]interface{}, error) {
+	appId string) ([][]interface{}, error) {
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(10*time.Second))
 	defer cancel()
 	typeAggr := elastic.NewTermsAggregation().Field("attack_type").Size(size).OrderByCount(false)
@@ -292,19 +311,19 @@ func AggregationAttackWithType(startTime int64, endTime int64, size int,
 	aggrResult, err := es.ElasticClient.Search(AliasAttackIndexName + "-" + appId).
 		Query(timeQuery).
 		Aggregation(aggrName, typeAggr).
-		Size(0).
+		Size(512).
 		Do(ctx)
 	if err != nil {
 		return nil, err
 	}
-	result := make([]map[string]interface{}, 0)
+	result := make([][]interface{}, 0)
 	if aggrResult != nil && aggrResult.Aggregations != nil {
 		if terms, ok := aggrResult.Aggregations.Terms(aggrName); ok && terms.Buckets != nil {
-			result = make([]map[string]interface{}, len(terms.Buckets))
+			result = make([][]interface{}, len(terms.Buckets))
 			for index, item := range terms.Buckets {
-				result[index] = make(map[string]interface{})
-				result[index]["type"] = item.Key
-				result[index]["count"] = item.DocCount
+				result[index] = make([]interface{}, 2, 2)
+				result[index][0] = item.Key
+				result[index][1] = item.DocCount
 			}
 		}
 	}

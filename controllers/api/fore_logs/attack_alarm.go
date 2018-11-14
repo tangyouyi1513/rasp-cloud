@@ -21,6 +21,7 @@ import (
 	"rasp-cloud/models"
 	"rasp-cloud/models/logs"
 	"math"
+	"time"
 )
 
 // Operations about attack alarm message
@@ -51,6 +52,10 @@ func (o *AttackAlarmController) AggregationWithTime() {
 	}
 	if param.StartTime > param.EndTime {
 		o.ServeError(http.StatusBadRequest, "start_time cannot be greater than end_time")
+	}
+	duration := time.Duration(param.EndTime-param.StartTime) * time.Millisecond
+	if duration > 366*24*time.Hour {
+		o.ServeError(http.StatusBadRequest, "time duration can not be greater than 366 days")
 	}
 	if param.Interval == "" {
 		o.ServeError(http.StatusBadRequest, "interval cannot be empty")
@@ -180,6 +185,10 @@ func (o *AttackAlarmController) validFieldAggrParam(param *logs.AggrFieldParam) 
 	}
 	if param.StartTime > param.EndTime {
 		o.ServeError(http.StatusBadRequest, "start_time cannot be greater than end_time")
+	}
+	duration := time.Duration(param.EndTime-param.StartTime) * time.Millisecond
+	if duration > 366*24*time.Hour {
+		o.ServeError(http.StatusBadRequest, "time duration can not be greater than 366 days")
 	}
 	if param.Size <= 0 {
 		o.ServeError(http.StatusBadRequest, "size must be greater than 0")
