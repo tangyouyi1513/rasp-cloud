@@ -62,5 +62,7 @@ func (o *UserController) Login() {
 // @router /logout [get]
 func (o *UserController) Logout() {
 	o.Ctx.SetCookie(models.AuthCookieName, "")
+	cookie := o.Ctx.GetCookie(models.AuthCookieName)
+	models.RemoveCookie(cookie)
 	o.ServeWithEmptyData()
 }

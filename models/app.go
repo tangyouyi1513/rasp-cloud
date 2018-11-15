@@ -35,11 +35,14 @@ import (
 	"bytes"
 	"github.com/astaxie/beego/httplib"
 	"errors"
+	"crypto/sha256"
+	"encoding/base64"
 )
 
 type App struct {
 	Id               string                 `json:"id" bson:"_id"`
 	Name             string                 `json:"name"  bson:"name"`
+	Secret           string                 `bson:"secret"`
 	Language         string                 `json:"language"  bson:"language"`
 	Description      string                 `json:"description"  bson:"description"`
 	ConfigTime       int64                  `json:"config_time"  bson:"config_time"`
@@ -181,6 +184,9 @@ func AddApp(app *App) (result *App, err error) {
 	if app.Id == "" {
 		app.Id = generateAppId(app)
 	}
+	if app.Secret == "" {
+		app.Secret = generateSecret(app)
+	}
 	err = es.CreateEsIndex(logs.PolicyIndexName+"-"+app.Id, logs.AliasPolicyIndexName+"-"+app.Id, logs.PolicyEsMapping)
 	if err != nil {
 		return
@@ -207,6 +213,14 @@ func generateAppId(app *App) string {
 	return fmt.Sprintf("%x", sha1.Sum([]byte(random)))
 }
 
+func generateSecret(app *App) string {
+	random := "openrasp_app" + app.Name + app.Id +
+		strconv.FormatInt(time.Now().UnixNano(), 10) + strconv.Itoa(rand.Intn(10000))
+	sha256Data := sha256.Sum256([]byte(random))
+	base64Data := base64.URLEncoding.EncodeToString(sha256Data[0:])
+	return base64Data[0 : len(base64Data)-1]
+}
+
 func GetAllApp(page int, perpage int) (count int, result []App, err error) {
 	count, err = mongo.FindAll(appCollectionName, nil, &result, perpage*(page-1), perpage)
 	if err == nil && result != nil {
@@ -217,16 +231,36 @@ func GetAllApp(page int, perpage int) (count int, result []App, err error) {
 	return
 }
 
-func GetAppByName(name string) (app *App, err error) {
-	err = mongo.FindOne(appCollectionName, bson.M{"name": name}, &app)
-	return
-}
-
 func GetAppById(id string) (app *App, err error) {
 	err = mongo.FindId(appCollectionName, id, &app)
 	if err == nil && app != nil {
 		HandleApp(app)
 	}
+	return
+}
+
+func GetSecretByAppId(appId string) (secret string, err error) {
+	newSession := mongo.NewSession()
+	defer newSession.Close()
+	var result *App
+	err = newSession.DB(mongo.DbName).C(appCollectionName).FindId(appId).Select(bson.M{"secret": 1}).One(&result)
+	if err != nil {
+		return
+	}
+	if result != nil {
+		secret = result.Secret
+	}
+	return
+}
+
+func RegenerateSecret(appId string) (secret string, err error) {
+	var app *App
+	err = mongo.FindId(appCollectionName, appId, &app)
+	if err == nil {
+		return
+	}
+	newSecret := generateSecret(app)
+	err = mongo.UpdateId(appCollectionName, appId, bson.M{"secret": newSecret})
 	return
 }
 
@@ -243,6 +277,12 @@ func HandleApp(app *App) {
 	if app.HttpAlarmConf.RecvAddr == nil {
 		app.HttpAlarmConf.RecvAddr = make([]string, 0)
 	}
+	if app.EmailAlarmConf.Password != "" {
+		app.EmailAlarmConf.Password = "************"
+	}
+	if app.DingAlarmConf.CorpSecret != "" {
+		app.DingAlarmConf.CorpSecret = "************"
+	}
 	if app.WhiteListConfig == nil {
 		app.WhiteListConfig = make(map[string]interface{})
 	}
@@ -251,20 +291,20 @@ func HandleApp(app *App) {
 	}
 }
 
-func UpdateAppById(id string, doc interface{}) (err error) {
-	return mongo.UpdateId(appCollectionName, id, doc)
+func UpdateAppById(id string, doc interface{}) (app *App, err error) {
+	err = mongo.UpdateId(appCollectionName, id, doc)
+	if err != nil {
+		return
+	}
+	return GetAppById(id)
 }
 
-func UpdateGenarateConfig(appId string, config map[string]interface{}) error {
+func UpdateGeneralConfig(appId string, config map[string]interface{}) (*App, error) {
 	return UpdateAppById(appId, bson.M{"general_config": config, "config_time": time.Now().UnixNano()})
 }
 
-func UpdateWhiteListConfig(appId string, config map[string]interface{}) error {
+func UpdateWhiteListConfig(appId string, config map[string]interface{}) (app *App, err error) {
 	return UpdateAppById(appId, bson.M{"whitelist_config": config, "config_time": time.Now().UnixNano()})
-}
-
-func UpdateApp(appId string, config map[string]interface{}) error {
-	return UpdateAppById(appId, config)
 }
 
 func RemoveAppById(id string) (err error) {

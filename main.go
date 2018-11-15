@@ -42,8 +42,12 @@ func handleCmdArgs() {
 }
 
 func initLogger() {
-	if isExists, _ := tools.PathExists("logs/api"); !isExists {
-		err := os.MkdirAll("logs/api", os.ModePerm)
+	currentPath, err := tools.GetCurrentPath()
+	if err != nil {
+		tools.Panic("failed to get current path: " + err.Error())
+	}
+	if isExists, _ := tools.PathExists(currentPath + "/logs/api"); !isExists {
+		err := os.MkdirAll(currentPath+"/logs/api", os.ModePerm)
 		if err != nil {
 			tools.Panic("failed to create logs/api dir")
 		}

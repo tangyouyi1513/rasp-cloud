@@ -125,6 +125,22 @@ func init() {
 
 	beego.GlobalControllerRouter["rasp-cloud/controllers/api:AppController"] = append(beego.GlobalControllerRouter["rasp-cloud/controllers/api:AppController"],
 		beego.ControllerComments{
+			Method: "GetAppSecret",
+			Router: `/secret/get`,
+			AllowHTTPMethods: []string{"post"},
+			MethodParams: param.Make(),
+			Params: nil})
+
+	beego.GlobalControllerRouter["rasp-cloud/controllers/api:AppController"] = append(beego.GlobalControllerRouter["rasp-cloud/controllers/api:AppController"],
+		beego.ControllerComments{
+			Method: "RegenerateAppSecret",
+			Router: `/secret/regenerate`,
+			AllowHTTPMethods: []string{"post"},
+			MethodParams: param.Make(),
+			Params: nil})
+
+	beego.GlobalControllerRouter["rasp-cloud/controllers/api:AppController"] = append(beego.GlobalControllerRouter["rasp-cloud/controllers/api:AppController"],
+		beego.ControllerComments{
 			Method: "UpdateAppWhiteListConfig",
 			Router: `/whitelist/config`,
 			AllowHTTPMethods: []string{"post"},

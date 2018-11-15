@@ -19,12 +19,12 @@ import (
 	"rasp-cloud/tools"
 	"github.com/astaxie/beego/logs"
 	"os"
-	"path"
 	"rasp-cloud/es"
 	"time"
 	"encoding/json"
 	"github.com/olivere/elastic"
 	"context"
+	"path"
 )
 
 type AggrTimeParam struct {
@@ -71,62 +71,120 @@ type SearchPolicyParam struct {
 }
 
 var (
-	AttackAlarmType = "attack-alarm"
-	PolicyAlarmType = "policy-alarm"
-	AddAlarmFunc    func(string, []byte)
-	raspLoggers     = make(map[string]*logs.BeeLogger)
+	AttackAlarmType     = "attack-alarm"
+	PolicyAlarmType     = "policy-alarm"
+	AddAlarmFunc        func(string, map[string]interface{}) error
+	esAttackAlarmBuffer chan map[string]interface{}
+	esPolicyAlarmBuffer chan map[string]interface{}
+	alarmFileLoggers    = make(map[string]*logs.BeeLogger)
 )
 
 func init() {
 	es.RegisterTTL(24*365*time.Hour, AliasAttackIndexName+"-*")
 	es.RegisterTTL(24*365*time.Hour, AliasPolicyIndexName+"-*")
-	if beego.AppConfig.String("RaspLogMode") == "logstash" ||
+	if beego.AppConfig.String("RaspLogMode") == "file" ||
 		beego.AppConfig.String("RaspLogMode") == "" {
-		AddAlarmFunc = AddLogWithLogstash
+		AddAlarmFunc = AddLogWithFile
 		initRaspLoggers()
-	} else if beego.AppConfig.String("RaspLogMode") == "kafka" {
-		AddAlarmFunc = AddLogWithKafka
+	} else if beego.AppConfig.String("RaspLogMode") == "es" {
+		startEsAlarmLogPush()
+		AddAlarmFunc = AddLogWithES
 	} else {
 		tools.Panic("Unrecognized the value of RaspLogMode config")
 	}
+	alarmBufferSize := beego.AppConfig.DefaultInt("AlarmBufferSize", 300)
+	esAttackAlarmBuffer = make(chan map[string]interface{}, alarmBufferSize)
+	esPolicyAlarmBuffer = make(chan map[string]interface{}, alarmBufferSize)
 }
 
 func initRaspLoggers() {
-	raspLoggers[AttackAlarmType] = initRaspLogger("openrasp-logs/attack-alarm", "attack.log")
-	raspLoggers[PolicyAlarmType] = initRaspLogger("openrasp-logs/policy-alarm", "policy.log")
+	alarmFileLoggers[AttackAlarmType] = initAlarmFileLogger("/openrasp-logs/attack-alarm", "attack.log")
+	alarmFileLoggers[PolicyAlarmType] = initAlarmFileLogger("/openrasp-logs/policy-alarm", "policy.log")
 }
 
-func initRaspLogger(dirName string, fileName string) *logs.BeeLogger {
+func initAlarmFileLogger(dirName string, fileName string) *logs.BeeLogger {
+	currentPath, err := tools.GetCurrentPath()
+	if err != nil {
+		tools.Panic("failed to init alarm logger: " + err.Error())
+	}
+	dirName = currentPath + dirName
 	if isExists, _ := tools.PathExists(dirName); !isExists {
 		err := os.MkdirAll(dirName, os.ModePerm)
 		if err != nil {
-			tools.Panic(err.Error())
+			tools.Panic("failed to init alarm logger: " + err.Error())
 		}
 	}
 
 	logger := logs.NewLogger()
 	logPath := path.Join(dirName, fileName)
-	err := logger.SetLogger(tools.AdapterAlarmFile,
+	err = logger.SetLogger(tools.AdapterAlarmFile,
 		`{"filename":"`+logPath+`", "daily":true, "maxdays":10, "perm":"0777"}`)
 	if err != nil {
-		tools.Panic("failed to init rasp log: " + err.Error())
+		tools.Panic("failed to init alarm logger: " + err.Error())
 	}
 	return logger
 }
 
-func AddLogWithLogstash(alarmType string, content []byte) {
-	if logger, ok := raspLoggers[alarmType]; ok && logger != nil {
-		_, err := logger.Write(content)
+func startEsAlarmLogPush() {
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				beego.Error("failed to push es alarm log: ", r)
+			}
+		}()
+		for {
+			select {
+			case alarm := <-esAttackAlarmBuffer:
+				alarms := make([]map[string]interface{}, 0, 200)
+				alarms = append(alarms, alarm)
+				for len(esAttackAlarmBuffer) > 0 && len(alarms) < 200 {
+					alarm := <-esAttackAlarmBuffer
+					alarms = append(alarms, alarm)
+				}
+				es.BulkInsert(AttackAlarmType, alarms)
+			case alarm := <-esPolicyAlarmBuffer:
+				alarms := make([]map[string]interface{}, 0, 200)
+				alarms = append(alarms, alarm)
+				for len(esPolicyAlarmBuffer) > 0 && len(alarms) < 200 {
+					alarm := <-esPolicyAlarmBuffer
+					alarms = append(alarms, alarm)
+				}
+				es.BulkInsert(PolicyAlarmType, alarms)
+			}
+		}
+	}()
+}
+
+func AddLogWithFile(alarmType string, alarm map[string]interface{}) error {
+	if logger, ok := alarmFileLoggers[alarmType]; ok && logger != nil {
+		content, err := json.Marshal(alarm)
+		if err != nil {
+			return err
+		}
+		_, err = logger.Write(content)
 		if err != nil {
 			logs.Error("failed to write rasp log: " + err.Error())
+			return err
 		}
 	} else {
 		logs.Error("failed to write rasp log ,unrecognized log type: " + alarmType)
 	}
+	return nil
 }
 
-func AddLogWithKafka(alarmType string, content []byte) {
-
+func AddLogWithES(alarmType string, alarm map[string]interface{}) error {
+	if alarmType == AttackAlarmType {
+		select {
+		case esAttackAlarmBuffer <- alarm:
+		default:
+		}
+	} else if alarmType == PolicyAlarmType {
+		select {
+		case esPolicyAlarmBuffer <- alarm:
+		default:
+		}
+	}
+	return nil
 }
 
 func SearchLogs(startTime int64, endTime int64, query map[string]interface{}, sortField string, page int,

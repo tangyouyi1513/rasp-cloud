@@ -121,6 +121,48 @@ func (o *AppController) GetRasps() {
 	o.Serve(result)
 }
 
+// @router /secret/get [post]
+func (o *AppController) GetAppSecret() {
+	var param struct {
+		AppId string `json:"app_id"`
+	}
+	err := json.Unmarshal(o.Ctx.Input.RequestBody, &param)
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "json format error： "+err.Error())
+	}
+	if param.AppId == "" {
+		o.ServeError(http.StatusBadRequest, "app_id can not be empty")
+	}
+	secret, err := models.GetSecretByAppId(param.AppId)
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "failed to get secret： "+err.Error())
+	}
+	o.Serve(map[string]string{
+		"secret": secret,
+	})
+}
+
+// @router /secret/regenerate [post]
+func (o *AppController) RegenerateAppSecret() {
+	var param struct {
+		AppId string `json:"app_id"`
+	}
+	err := json.Unmarshal(o.Ctx.Input.RequestBody, &param)
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "json format error： "+err.Error())
+	}
+	if param.AppId == "" {
+		o.ServeError(http.StatusBadRequest, "app_id can not be empty")
+	}
+	secret, err := models.RegenerateSecret(param.AppId)
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "failed to get secret： "+err.Error())
+	}
+	o.Serve(map[string]string{
+		"secret": secret,
+	})
+}
+
 // @router /general/config [post]
 func (o *AppController) UpdateAppGeneralConfig() {
 	var param appConfigParam
@@ -135,12 +177,11 @@ func (o *AppController) UpdateAppGeneralConfig() {
 		o.ServeError(http.StatusBadRequest, "config can not be empty")
 	}
 	o.validateAppConfig(param.Config)
-	err = models.UpdateGenarateConfig(param.AppId, param.Config)
+	app, err := models.UpdateGeneralConfig(param.AppId, param.Config)
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to update app general config: "+err.Error())
 	}
-
-	o.ServeWithEmptyData()
+	o.Serve(app)
 }
 
 // @router /whitelist/config [post]
@@ -157,11 +198,11 @@ func (o *AppController) UpdateAppWhiteListConfig(id string, whiteListConfig map[
 		o.ServeError(http.StatusBadRequest, "config can not be empty")
 	}
 	o.validateWhiteListConfig(param.Config)
-	err = models.UpdateWhiteListConfig(param.AppId, param.Config)
+	app, err := models.UpdateWhiteListConfig(param.AppId, param.Config)
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to update app whitelist config: "+err.Error())
 	}
-	o.ServeWithEmptyData()
+	o.Serve(app)
 }
 
 // @router /algorithm/config [post]
@@ -301,12 +342,12 @@ func (o *AppController) ConfigApp() {
 		o.ServeError(http.StatusBadRequest, "the length of app description can not be greater than 1024")
 	}
 
-	err = models.UpdateAppById(param.AppId, bson.M{
+	app, err := models.UpdateAppById(param.AppId, bson.M{
 		"name": param.Name, "language": param.Language, "description": param.Description})
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to update app config: "+err.Error())
 	}
-	o.ServeWithEmptyData()
+	o.Serve(app)
 }
 
 func (o *AppController) validEmailConf(conf *models.EmailAlarmConf) {
@@ -535,11 +576,11 @@ func (o *AppController) ConfigAlarm() {
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to decode param json: "+err.Error())
 	}
-	err = models.UpdateAppById(param.AppId, updateData)
+	app, err := models.UpdateAppById(param.AppId, updateData)
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to update alarm config: "+err.Error())
 	}
-	o.ServeWithEmptyData()
+	o.Serve(app)
 }
 
 // @router /plugin/get [post]

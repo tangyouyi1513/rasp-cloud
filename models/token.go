@@ -30,6 +30,7 @@ type Token struct {
 
 const (
 	tokenCollectionName = "token"
+	AuthTokenName      = "X-OpenRASP-Token"
 )
 
 func GetAllTokent(page int, perpage int) (count int, result []*Token, err error) {

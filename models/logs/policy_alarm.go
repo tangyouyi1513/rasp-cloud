@@ -17,7 +17,6 @@ package logs
 import (
 	"fmt"
 	"crypto/md5"
-	"encoding/json"
 )
 
 type RaspLog struct {
@@ -107,9 +106,6 @@ func AddPolicyAlarm(alarm map[string]interface{}) error {
 			alarm["stack_md5"] = fmt.Sprintf("%x", md5.Sum([]byte(stack.(string))))
 		}
 	}
-	content, err := json.Marshal(alarm)
-	if err == nil {
-		AddAlarmFunc(PolicyAlarmType, content)
-	}
-	return err
+
+	return AddAlarmFunc(PolicyAlarmType, alarm)
 }

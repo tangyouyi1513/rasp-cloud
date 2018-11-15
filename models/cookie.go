@@ -67,3 +67,7 @@ func HasCookie(id string) (bool, error) {
 	}
 	return true, err
 }
+
+func RemoveCookie(id string) error {
+	return mongo.RemoveId(cookieCollectionName, id)
+}

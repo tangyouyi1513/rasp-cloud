@@ -15,7 +15,6 @@
 package logs
 
 import (
-	"encoding/json"
 	"crypto/md5"
 	"fmt"
 	"rasp-cloud/es"
@@ -191,11 +190,7 @@ func AddAttackAlarm(alarm map[string]interface{}) error {
 		}
 	}
 	setAlarmLocation(alarm)
-	content, err := json.Marshal(alarm)
-	if err == nil {
-		AddAlarmFunc(AttackAlarmType, content)
-	}
-	return err
+	return AddAlarmFunc(AttackAlarmType, alarm)
 }
 
 func setAlarmLocation(alarm map[string]interface{}) {
