@@ -30,15 +30,15 @@ type Token struct {
 
 const (
 	tokenCollectionName = "token"
-	AuthTokenName      = "X-OpenRASP-Token"
+	AuthTokenName       = "X-OpenRASP-Token"
 )
 
-func GetAllTokent(page int, perpage int) (count int, result []*Token, err error) {
+func GetAllToken(page int, perpage int) (count int, result []*Token, err error) {
 	count, err = mongo.FindAll(tokenCollectionName, nil, &result, perpage*(page-1), perpage)
 	return
 }
 
-func HasTokent(token string) (bool, error) {
+func HasToken(token string) (bool, error) {
 	var result *Token
 	err := mongo.FindId(tokenCollectionName, token, &result)
 	if err != nil || result == nil {
@@ -48,8 +48,10 @@ func HasTokent(token string) (bool, error) {
 }
 
 func AddToken(token *Token) (result *Token, err error) {
-	token.Token = generateToken()
-	err = mongo.Insert(tokenCollectionName, token)
+	if token.Token == "" {
+		token.Token = generateToken()
+	}
+	err = mongo.UpsertId(tokenCollectionName, token.Token, token)
 	result = token
 	return
 }

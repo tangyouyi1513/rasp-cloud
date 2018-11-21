@@ -17,7 +17,7 @@ var (
 )
 
 // @router /dashboard [post]
-func (o *ReportController) Get() {
+func (o *ReportController) Search() {
 	var query map[string]interface{}
 	err := json.Unmarshal(o.Ctx.Input.RequestBody, &query)
 	if err != nil {
@@ -76,7 +76,7 @@ func (o *ReportController) Get() {
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to get app： "+err.Error())
 	}
-	err, result := models.GetHistoryRequestSum(int64(startTime), int64(endTime), interval, timeZone, appId, "")
+	err, result := models.GetHistoryRequestSum(int64(startTime), int64(endTime), interval, timeZone, appId,)
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to get request sum form ES: "+err.Error())
 	}

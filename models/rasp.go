@@ -23,19 +23,19 @@ import (
 )
 
 type Rasp struct {
-	Id                string `json:"id" bson:"_id"`
-	AppId             string `json:"app_id" bson:"app_id"`
-	Version           string `json:"version" bson:"version"`
-	HostName          string `json:"hostname" bson:"hostname"`
-	RegisterIp        string `json:"register_ip" bson:"register_ip"`
-	Language          string `json:"language" bson:"language"`
-	LanguageVersion   string `json:"language_version" bson:"language_version"`
-	ServerType        string `json:"server_type" bson:"server_type"`
-	ServerVersion     string `json:"server_version" bson:"server_version"`
-	RaspHome          string `json:"rasp_home" bson:"rasp_home"`
-	PluginVersion     string `json:"plugin_version" bson:"plugin_version"`
-	Online            bool   `json:"online" bson:"online"`
-	LastHeartbeatTime int64  `json:"last_heartbeat_time" bson:"last_heartbeat_time"`
+	Id                string `json:"id" bson:"_id,omitempty"`
+	AppId             string `json:"app_id" bson:"app_id,omitempty"`
+	Version           string `json:"version" bson:"version,omitempty"`
+	HostName          string `json:"hostname" bson:"hostname,omitempty"`
+	RegisterIp        string `json:"register_ip" bson:"register_ip,omitempty"`
+	Language          string `json:"language" bson:"language,omitempty"`
+	LanguageVersion   string `json:"language_version" bson:"language_version,omitempty"`
+	ServerType        string `json:"server_type" bson:"server_type,omitempty"`
+	ServerVersion     string `json:"server_version" bson:"server_version,omitempty"`
+	RaspHome          string `json:"rasp_home" bson:"rasp_home,omitempty"`
+	PluginVersion     string `json:"plugin_version" bson:"plugin_version,omitempty"`
+	Online            bool   `json:"online" bson:"online,omitempty"`
+	LastHeartbeatTime int64  `json:"last_heartbeat_time" bson:"last_heartbeat_time,omitempty"`
 }
 
 const (
@@ -79,8 +79,8 @@ func RemoveRaspByAppId(appId string) (err error) {
 	return mongo.RemoveAll(raspCollectionName, bson.M{"app_id": appId})
 }
 
-func FindRasp(selector map[string]interface{}, page int, perpage int) (count int, result []*Rasp, err error) {
-	count, err = mongo.FindAll(raspCollectionName, bson.M(selector), &result, perpage*(page-1), perpage)
+func FindRasp(selector *Rasp, page int, perpage int) (count int, result []*Rasp, err error) {
+	count, err = mongo.FindAll(raspCollectionName, selector, &result, perpage*(page-1), perpage)
 	if err == nil {
 		for _, rasp := range result {
 			HandleRasp(rasp)

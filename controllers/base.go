@@ -42,6 +42,11 @@ func (o *BaseController) ServeWithEmptyData() {
 }
 
 func (o *BaseController) ServeError(code int, description ...string) {
+	o.ServeStatusCode(code, description...)
+	panic(description)
+}
+
+func (o *BaseController) ServeStatusCode(code int, description ...string) {
 	var des string
 	if len(description) == 0 {
 		des = http.StatusText(code)
@@ -50,5 +55,4 @@ func (o *BaseController) ServeError(code int, description ...string) {
 	}
 	o.Data["json"] = map[string]interface{}{"status": code, "description": des}
 	o.ServeJSON()
-	panic(description)
 }

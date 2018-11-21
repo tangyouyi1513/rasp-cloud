@@ -31,6 +31,7 @@ func main() {
 	beego.BConfig.Listen.Graceful = true
 	handleCmdArgs()
 	initLogger()
+	beego.SetStaticPath("//", "dist")
 	beego.ErrorController(&controllers.ErrorController{})
 	beego.Run()
 }
@@ -59,5 +60,8 @@ func initLogger() {
 		logs.SetLevel(beego.LevelDebug)
 	} else {
 		logs.SetLevel(beego.LevelInformational)
+		beego.BConfig.EnableErrorsShow = false
+		beego.BConfig.EnableErrorsRender = false
+
 	}
 }

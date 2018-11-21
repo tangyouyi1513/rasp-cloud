@@ -24,6 +24,7 @@ import (
 	"github.com/oschwald/geoip2-golang"
 	"github.com/astaxie/beego"
 	"net"
+	"rasp-cloud/tools"
 )
 
 type AttackAlarm struct {
@@ -36,7 +37,7 @@ var (
 	AttackEsMapping      = `
 	{
 		"mappings": {
-			"_default_": {
+			"attack-alarm": {
 				"_all": {
 					"enabled": false
 				},
@@ -53,7 +54,12 @@ var (
 						"ignore_above": 256
 					},
 					"server_ip": {
-						"type": "ip"
+						"type": "keyword",
+						"ignore_above": 256
+					},
+					"client_ip": {
+						"type": "keyword",
+						"ignore_above": 256
 					},
 					"referer": {
 						"type": "keyword",
@@ -64,7 +70,8 @@ var (
 						"ignore_above": 512
 					},
 					"attack_source": {
-						"type": "ip"
+						"type": "keyword",
+						"ignore_above": 256
 					},
 					"path": {
 						"type": "keyword",
@@ -110,7 +117,8 @@ var (
 						"ignore_above": 256
 					},
 					"local_ip": {
-						"type": "ip"
+						"type": "keyword",
+						"ignore_above": 256
 					},
 					"event_time": {
 						"type": "date"
@@ -171,7 +179,8 @@ var (
 								"ignore_above": 256
 							},
 							"ip": {
-								"type": "ip"
+								"type": "keyword",
+								"ignore_above": 256
 							}
 						}
 					}
@@ -180,9 +189,23 @@ var (
 		}
 	}
 	`
+	geoIpDbPath string
 )
 
+func init() {
+	currentPath, err := tools.GetCurrentPath()
+	if err != nil {
+		panic("failed to get current directory path: " + err.Error())
+	}
+	geoIpDbPath = currentPath + "/geoip/GeoLite2-City.mmdb"
+}
+
 func AddAttackAlarm(alarm map[string]interface{}) error {
+	defer func() {
+		if r := recover(); r != nil {
+			beego.Error("failed to add attack alarm: ", r)
+		}
+	}()
 	if stack, ok := alarm["stack_trace"]; ok && stack != nil && stack != "" {
 		_, ok = stack.(string)
 		if ok {
@@ -197,7 +220,7 @@ func setAlarmLocation(alarm map[string]interface{}) {
 	if attackSource, ok := alarm["attack_source"]; ok && attackSource != nil {
 		_, ok = attackSource.(string)
 		if ok {
-			db, err := geoip2.Open("geoip/GeoLite2-City.mmdb")
+			db, err := geoip2.Open(geoIpDbPath)
 			if err != nil {
 				beego.Error("failed to open geoip database: " + err.Error())
 			}
@@ -221,49 +244,51 @@ func setAlarmLocation(alarm map[string]interface{}) {
 
 func AggregationAttackWithTime(startTime int64, endTime int64, interval string, timeZone string,
 	appId string) (map[string]interface{}, error) {
-	blockData, err := aggregationInterceptState(startTime, endTime, interval, timeZone, appId, "block")
-	if err != nil {
-		return nil, err
-	}
-	logData, err := aggregationInterceptState(startTime, endTime, interval, timeZone, appId, "log")
-	if err != nil {
-		return nil, err
-	}
-	result := map[string]interface{}{
-		"block": blockData,
-		"log":   logData,
-	}
-	return result, nil
-}
-
-func aggregationInterceptState(startTime int64, endTime int64, interval string, timeZone string,
-	appId string, interceptState string) ([]map[string]interface{}, error) {
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(10*time.Second))
 	defer cancel()
+	timeAggrName := "aggr_time"
+	interceptAggrName := "request_sum"
 	timeAggr := elastic.NewDateHistogramAggregation().Field("event_time").TimeZone(timeZone).
-	Interval(interval).ExtendedBoundsMin(startTime)
-	interceptStateQuery := elastic.NewTermQuery("intercept_state", interceptState)
+		Interval(interval).ExtendedBounds(startTime, endTime)
+	interceptAggr := elastic.NewTermsAggregation().Field("intercept_state")
+	timeAggr.SubAggregation(interceptAggrName, interceptAggr)
 	timeQuery := elastic.NewRangeQuery("event_time").Gte(startTime).Lte(endTime)
-	aggrName := "aggr_time"
 	aggrResult, err := es.ElasticClient.Search(AliasAttackIndexName + "-" + appId).
-		Query(elastic.NewBoolQuery().Must(timeQuery, interceptStateQuery)).
-		Aggregation(aggrName, timeAggr).
-		Size(512).
+		Query(elastic.NewBoolQuery().Must(timeQuery)).
+		Aggregation(timeAggrName, timeAggr).
+		Size(0).
 		Do(ctx)
 	if err != nil {
 		return nil, err
 	}
-	result := make([]map[string]interface{}, 0)
+
+	var dataResult = make([][]int64, 2)
+	dataResult[0] = make([]int64, 0)
+	dataResult[1] = make([]int64, 0)
+	var labels = make([]interface{}, 0)
+	var result = make(map[string]interface{})
 	if aggrResult != nil && aggrResult.Aggregations != nil {
-		if terms, ok := aggrResult.Aggregations.Terms(aggrName); ok && terms.Buckets != nil {
-			result = make([]map[string]interface{}, len(terms.Buckets))
-			for index, item := range terms.Buckets {
-				result[index] = make(map[string]interface{})
-				result[index]["time"] = item.Key
-				result[index]["count"] = item.DocCount
+		if terms, ok := aggrResult.Aggregations.Terms(timeAggrName); ok && terms.Buckets != nil {
+			labelCount := len(terms.Buckets)
+			dataResult[0] = make([]int64, labelCount)
+			dataResult[1] = make([]int64, labelCount)
+			labels = make([]interface{}, labelCount)
+			for index, timeTerm := range terms.Buckets {
+				labels[index] = timeTerm.Key
+				if interceptTerm, ok := timeTerm.Terms(interceptAggrName); ok {
+					for _, item := range interceptTerm.Buckets {
+						if item.Key == "block" {
+							dataResult[0][index] = item.DocCount
+						} else if item.Key == "info" {
+							dataResult[1][index] = item.DocCount
+						}
+					}
+				}
 			}
 		}
 	}
+	result["data"] = dataResult
+	result["labels"] = labels
 	return result, nil
 }
 
@@ -277,7 +302,7 @@ func AggregationAttackWithUserAgent(startTime int64, endTime int64, size int,
 	aggrResult, err := es.ElasticClient.Search(AliasAttackIndexName + "-" + appId).
 		Query(timeQuery).
 		Aggregation(aggrName, uaAggr).
-		Size(512).
+		Size(0).
 		Do(ctx)
 	if err != nil {
 		return nil, err
@@ -306,7 +331,7 @@ func AggregationAttackWithType(startTime int64, endTime int64, size int,
 	aggrResult, err := es.ElasticClient.Search(AliasAttackIndexName + "-" + appId).
 		Query(timeQuery).
 		Aggregation(aggrName, typeAggr).
-		Size(512).
+		Size(0).
 		Do(ctx)
 	if err != nil {
 		return nil, err

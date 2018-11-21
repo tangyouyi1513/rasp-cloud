@@ -20,14 +20,12 @@ import (
 	"rasp-cloud/controllers"
 	"encoding/json"
 	"time"
-	"strings"
 	"github.com/astaxie/beego/validation"
 	"strconv"
 	"gopkg.in/mgo.v2"
 	"math"
 	"gopkg.in/mgo.v2/bson"
-	"fmt"
-	"reflect"
+	"sync"
 )
 
 // Operations about app
@@ -41,13 +39,9 @@ type pageParam struct {
 	Perpage int    `json:"perpage"`
 }
 
-type appConfigParam struct {
-	AppId  string                 `json:"app_id"`
-	Config map[string]interface{} `json:"config"`
-}
-
 var (
 	supportLanguages = []string{"java", "php"}
+	mutex            sync.Mutex
 )
 
 // @router /get [post]
@@ -158,6 +152,13 @@ func (o *AppController) RegenerateAppSecret() {
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to get secret： "+err.Error())
 	}
+	models.AddOperation(&models.Operation{
+		AppId:   param.AppId,
+		TypeId:  models.OperationTypeRegenerateSecret,
+		User:    models.GetLoginUser(),
+		Ip:      o.Ctx.Input.IP(),
+		Content: "regenerated the secret",
+	})
 	o.Serve(map[string]string{
 		"secret": secret,
 	})
@@ -165,7 +166,10 @@ func (o *AppController) RegenerateAppSecret() {
 
 // @router /general/config [post]
 func (o *AppController) UpdateAppGeneralConfig() {
-	var param appConfigParam
+	var param struct {
+		AppId  string                 `json:"app_id"`
+		Config map[string]interface{} `json:"config"`
+	}
 	err := json.Unmarshal(o.Ctx.Input.RequestBody, &param)
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "json format error： "+err.Error())
@@ -181,12 +185,22 @@ func (o *AppController) UpdateAppGeneralConfig() {
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to update app general config: "+err.Error())
 	}
+	models.AddOperation(&models.Operation{
+		AppId:   param.AppId,
+		TypeId:  models.OperationTypeUpdateGenerateConfig,
+		User:    models.GetLoginUser(),
+		Ip:      o.Ctx.Input.IP(),
+		Content: "updated the general configuration",
+	})
 	o.Serve(app)
 }
 
 // @router /whitelist/config [post]
-func (o *AppController) UpdateAppWhiteListConfig(id string, whiteListConfig map[string]interface{}) {
-	var param appConfigParam
+func (o *AppController) UpdateAppWhiteListConfig() {
+	var param struct {
+		AppId  string                       `json:"app_id"`
+		Config []models.WhitelistConfigItem `json:"config"`
+	}
 	err := json.Unmarshal(o.Ctx.Input.RequestBody, &param)
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "json format error： "+err.Error())
@@ -202,6 +216,13 @@ func (o *AppController) UpdateAppWhiteListConfig(id string, whiteListConfig map[
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to update app whitelist config: "+err.Error())
 	}
+	models.AddOperation(&models.Operation{
+		AppId:   param.AppId,
+		TypeId:  models.OperationTypeUpdateWhitelistConfig,
+		User:    models.GetLoginUser(),
+		Ip:      o.Ctx.Input.IP(),
+		Content: "updated the whitelist configuration",
+	})
 	o.Serve(app)
 }
 
@@ -216,16 +237,23 @@ func (o *AppController) UpdateAppAlgorithmConfig() {
 		o.ServeError(http.StatusBadRequest, "json format error： "+err.Error())
 	}
 	if param.PluginId == "" {
-		o.ServeError(http.StatusBadRequest, "app_id can not be empty")
+		o.ServeError(http.StatusBadRequest, "plugin_id can not be empty")
 	}
 	if param.Config == nil {
 		o.ServeError(http.StatusBadRequest, "config can not be empty")
 	}
 	o.validateAppConfig(param.Config)
-	err = models.UpdateAlgorithmConfig(param.PluginId, param.Config)
+	appId, err := models.UpdateAlgorithmConfig(param.PluginId, param.Config)
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to update algorithm config: "+err.Error())
 	}
+	models.AddOperation(&models.Operation{
+		AppId:   appId,
+		TypeId:  models.OperationTypeUpdateAlgorithmConfig,
+		User:    models.GetLoginUser(),
+		Ip:      o.Ctx.Input.IP(),
+		Content: "updated the whitelist configuration",
+	})
 	o.ServeWithEmptyData()
 }
 
@@ -282,18 +310,25 @@ func (o *AppController) Post() {
 		app.GeneralConfig = models.DefaultGeneralConfig
 	}
 
-	if app.WhiteListConfig != nil {
-		o.validateWhiteListConfig(app.WhiteListConfig)
+	if app.WhitelistConfig != nil {
+		o.validateWhiteListConfig(app.WhitelistConfig)
 		configTime := time.Now().UnixNano()
 		app.ConfigTime = configTime
 	} else {
-		app.WhiteListConfig = make(map[string]interface{})
+		app.WhitelistConfig = make([]models.WhitelistConfigItem, 0)
 	}
-	models.HandleApp(app)
+	models.HandleApp(app, true)
 	app, err = models.AddApp(app)
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "create app failed: "+err.Error())
 	}
+	models.AddOperation(&models.Operation{
+		AppId:   app.Id,
+		TypeId:  models.OperationTypeAddApp,
+		User:    models.GetLoginUser(),
+		Ip:      o.Ctx.Input.IP(),
+		Content: "created the app: " + app.Name,
+	})
 	o.Serve(app)
 }
 
@@ -341,11 +376,20 @@ func (o *AppController) ConfigApp() {
 	if len(param.Description) > 1024 {
 		o.ServeError(http.StatusBadRequest, "the length of app description can not be greater than 1024")
 	}
-
-	app, err := models.UpdateAppById(param.AppId, bson.M{
-		"name": param.Name, "language": param.Language, "description": param.Description})
+	updateData := bson.M{"name": param.Name, "language": param.Language, "description": param.Description}
+	app, err := models.UpdateAppById(param.AppId, updateData)
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to update app config: "+err.Error())
+	}
+	operationData, err := json.Marshal(updateData)
+	if err != nil {
+		models.AddOperation(&models.Operation{
+			AppId:   app.Id,
+			TypeId:  models.OperationTypeEditApp,
+			User:    models.GetLoginUser(),
+			Ip:      o.Ctx.Input.IP(),
+			Content: "edited the app: " + string(operationData),
+		})
 	}
 	o.Serve(app)
 }
@@ -440,6 +484,15 @@ func (o *AppController) Delete() {
 	if app.Id == "" {
 		o.ServeError(http.StatusBadRequest, "the id cannot be empty")
 	}
+	mutex.Lock()
+	defer mutex.Unlock()
+	count, err := models.GetAppCount()
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "failed to get app count: "+err.Error())
+	}
+	if count <= 1 {
+		o.ServeError(http.StatusBadRequest, "failed to remove app: keep at least one app")
+	}
 	err = models.RemoveAppById(app.Id)
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to remove app： "+err.Error())
@@ -452,6 +505,21 @@ func (o *AppController) Delete() {
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to remove plugin by app_id： "+err.Error())
 	}
+	err = models.RemovePluginByAppId(app.Id)
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "failed to remove plugin by app_id： "+err.Error())
+	}
+	err = models.RemoveOperationByAppId(app.Id)
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "failed to remove operation log by app_id： "+err.Error())
+	}
+	models.AddOperation(&models.Operation{
+		AppId:   app.Id,
+		TypeId:  models.OperationTypeDeleteApp,
+		User:    models.GetLoginUser(),
+		Ip:      o.Ctx.Input.IP(),
+		Content: "deleted the app",
+	})
 	o.ServeWithEmptyData()
 }
 
@@ -497,44 +565,24 @@ func (o *AppController) validateAppConfig(config map[string]interface{}) {
 	}
 }
 
-func (o *AppController) validateWhiteListConfig(config map[string]interface{}) {
+func (o *AppController) validateWhiteListConfig(config []models.WhitelistConfigItem) {
 	if config == nil {
 		o.ServeError(http.StatusBadRequest, "the config cannot be nil")
 	}
-	for key, value := range config {
-		if strings.HasPrefix(key, "hook.white.") {
-			if key == "hook.white.ALL" {
-				_, ok := value.(bool)
-				if !ok {
-					o.ServeError(http.StatusBadRequest,
-						"the type of "+key+" config must be bool")
-				}
-			} else {
-				fmt.Printf("%+v", reflect.TypeOf(value))
-				whiteUrls, ok := value.([]interface{})
-				if !ok {
-					o.ServeError(http.StatusBadRequest,
-						"the type of "+key+" config must be string array")
-				}
-
-				if len(whiteUrls) == 0 || len(whiteUrls) > 10 {
-					o.ServeError(http.StatusBadRequest,
-						"the count of hook.white's url array must be between (0,10]")
-				}
-				for _, url := range whiteUrls {
-					if _, ok := url.(string); !ok {
-						o.ServeError(http.StatusBadRequest,
-							"the type of "+key+" config must be string array")
-					}
-					if len(url.(string)) > 200 || len(url.(string)) < 1 {
-						o.ServeError(http.StatusBadRequest,
-							"the length of hook.white's url must be between [1,200]")
-					}
-				}
-			}
-		} else {
+	if len(config) > 200 {
+		o.ServeError(http.StatusBadRequest,
+			"the count of whitelist config items must be between (0,200]")
+	}
+	for _, value := range config {
+		if len(value.Url) > 200 || len(value.Url) == 0 {
 			o.ServeError(http.StatusBadRequest,
-				"the config key must start with 'hook.white.'")
+				"the length of whitelist config url must be between [1,200]")
+		}
+		for key := range value.Hook {
+			if len(key) > 128 {
+				o.ServeError(http.StatusBadRequest,
+					"the length of hook's type can not be greater 128")
+			}
 		}
 	}
 }
@@ -580,6 +628,13 @@ func (o *AppController) ConfigAlarm() {
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to update alarm config: "+err.Error())
 	}
+	models.AddOperation(&models.Operation{
+		AppId:   app.Id,
+		TypeId:  models.OperationTypeUpdateAlarmConfig,
+		User:    models.GetLoginUser(),
+		Ip:      o.Ctx.Input.IP(),
+		Content: "updated the alarm configuration",
+	})
 	o.Serve(app)
 }
 
@@ -628,7 +683,7 @@ func (o *AppController) GetSelectedPlugin() {
 	if appId == "" {
 		o.ServeError(http.StatusBadRequest, "app_id cannot be empty")
 	}
-	plugin, err := models.GetSelectedPlugin(appId)
+	plugin, err := models.GetSelectedPlugin(appId, false)
 	if mgo.ErrNotFound == err || plugin == nil {
 		o.ServeWithEmptyData()
 		return
@@ -658,6 +713,13 @@ func (o *AppController) SetSelectedPlugin() {
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to set selected plugin: "+err.Error())
 	}
+	models.AddOperation(&models.Operation{
+		AppId:   appId,
+		TypeId:  models.OperationTypeSetSelectedPlugin,
+		User:    models.GetLoginUser(),
+		Ip:      o.Ctx.Input.IP(),
+		Content: "set up selected plugin: "+pluginId,
+	})
 	o.ServeWithEmptyData()
 }
 

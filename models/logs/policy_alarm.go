@@ -17,6 +17,7 @@ package logs
 import (
 	"fmt"
 	"crypto/md5"
+	"github.com/astaxie/beego"
 )
 
 type RaspLog struct {
@@ -29,7 +30,7 @@ var (
 	PolicyEsMapping      = `
 	{
 		"mappings": {
-			"_default_": {
+			"policy-alarm": {
 				"_all": {
 					"enabled": false
 				},
@@ -57,7 +58,8 @@ var (
 								"ignore_above": 256
 							},
 							"ip": {
-								"type": "ip"
+								"type": "keyword",
+								"ignore_above": 256
 							}
 						}
 					},
@@ -70,7 +72,8 @@ var (
 						"ignore_above": 256
 					},
 					"local_ip": {
-						"type": "ip"
+						"type": "keyword",
+                        "ignore_above": 256
 					},
 					"event_time": {
 						"type": "date"
@@ -100,6 +103,11 @@ var (
 )
 
 func AddPolicyAlarm(alarm map[string]interface{}) error {
+	defer func() {
+		if r := recover(); r != nil {
+			beego.Error("failed to add policy alarm: ", r)
+		}
+	}()
 	if stack, ok := alarm["stack_trace"]; ok && stack != nil && stack != "" {
 		_, ok = stack.(string)
 		if ok {

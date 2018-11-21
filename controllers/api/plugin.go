@@ -46,10 +46,10 @@ func (o *PluginController) Upload() {
 		o.ServeError(http.StatusBadRequest, "failed to get app: "+err.Error())
 	}
 	uploadFile, info, err := o.GetFile("plugin")
-	defer uploadFile.Close()
 	if uploadFile == nil {
 		o.ServeError(http.StatusBadRequest, "must have the plugin parameter")
 	}
+	defer uploadFile.Close()
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "parse uploadFile error: "+err.Error())
 	}
@@ -74,8 +74,9 @@ func (o *PluginController) Upload() {
 	}
 	var newVersion string
 	if newVersion = regexp.MustCompile(`'.+'|".+"`).FindString(firstLine); newVersion == "" {
-		o.ServeError(http.StatusBadRequest, "failed to find the plugin version: "+err.Error())
+		o.ServeError(http.StatusBadRequest, "failed to find the plugin version")
 	}
+	newVersion = newVersion[1 : len(newVersion)-1]
 	algorithmStartMsg := "// BEGIN ALGORITHM CONFIG //"
 	algorithmEndMsg := "// END ALGORITHM CONFIG //"
 	algorithmStart := bytes.Index(pluginContent, []byte(algorithmStartMsg))
@@ -105,6 +106,13 @@ func (o *PluginController) Upload() {
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to add plugin to mongodb: "+err.Error())
 	}
+	models.AddOperation(&models.Operation{
+		AppId:   appId,
+		TypeId:  models.OperationTypeUploadPlugin,
+		User:    models.GetLoginUser(),
+		Ip:      o.Ctx.Input.IP(),
+		Content: "uploaded the plugin: " + latestPlugin.Id,
+	})
 	o.Serve(latestPlugin)
 }
 
@@ -119,11 +127,31 @@ func (o *PluginController) Get() {
 	if pluginId == "" {
 		o.ServeError(http.StatusBadRequest, "plugin_id cannot be empty")
 	}
-	plugin, err := models.GetPluginById(pluginId)
+	plugin, err := models.GetPluginById(pluginId, false)
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to get plugin: "+err.Error())
 	}
 	o.Serve(plugin)
+}
+
+// @router /download [post]
+func (o *PluginController) Download() {
+	var param map[string]string
+	err := json.Unmarshal(o.Ctx.Input.RequestBody, &param)
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "json format error： "+err.Error())
+	}
+	pluginId := param["id"]
+	if pluginId == "" {
+		o.ServeError(http.StatusBadRequest, "plugin_id cannot be empty")
+	}
+	plugin, err := models.GetPluginById(pluginId, true)
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "failed to get plugin: "+err.Error())
+	}
+	o.Ctx.Output.Header("Content-Type", "text/plain")
+	o.Ctx.Output.Header("Content-Disposition", "attachment;filename=plugin-"+plugin.Version+".js")
+	o.Ctx.Output.Body([]byte(plugin.Content))
 }
 
 // @router /delete [post]
@@ -137,6 +165,10 @@ func (o *PluginController) Delete() {
 	if pluginId == "" {
 		o.ServeError(http.StatusBadRequest, "plugin_id cannot be empty")
 	}
+	plugin, err := models.GetPluginById(pluginId, false)
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "can not get the plugin: "+err.Error())
+	}
 	var app *models.App
 	err = mongo.FindOne("app", bson.M{"selected_plugin_id": pluginId}, &app)
 	if err != nil && err != mgo.ErrNotFound {
@@ -147,7 +179,14 @@ func (o *PluginController) Delete() {
 	}
 	err = models.DeletePlugin(pluginId)
 	if err != nil {
-		o.ServeError(http.StatusBadRequest, "failed to delete plugin: "+err.Error())
+		o.ServeError(http.StatusBadRequest, "failed to delete the plugin: "+err.Error())
 	}
+	models.AddOperation(&models.Operation{
+		AppId:   plugin.AppId,
+		TypeId:  models.OperationTypeDeletePlugin,
+		User:    models.GetLoginUser(),
+		Ip:      o.Ctx.Input.IP(),
+		Content: "deleted the plugin: " + plugin.Id,
+	})
 	o.ServeWithEmptyData()
 }

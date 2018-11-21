@@ -41,7 +41,7 @@ func (o *TokenController) Get() {
 	if perpage <= 0 {
 		o.ServeError(http.StatusBadRequest, "perpage must be greater than 0")
 	}
-	total, tokens, err := models.GetAllTokent(page, perpage)
+	total, tokens, err := models.GetAllToken(page, perpage)
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to get tokens: "+err.Error())
 	}
@@ -83,6 +83,10 @@ func (o *TokenController) Delete() {
 	}
 	if len(token.Token) == 0 {
 		o.ServeError(http.StatusBadRequest, "the token param cannot be empty")
+	}
+	currentToken := o.Ctx.Input.Header(models.AuthTokenName)
+	if currentToken == token.Token {
+		o.ServeError(http.StatusBadRequest, "can not delete the token currently in use")
 	}
 	token, err = models.RemoveToken(token.Token)
 	if err != nil {

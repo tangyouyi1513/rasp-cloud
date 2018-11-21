@@ -66,7 +66,7 @@ func (o *HeartbeatController) Post() {
 	result := make(map[string]interface{})
 	isUpdate := false
 	// handle plugin
-	selectedPlugin, err := models.GetSelectedPlugin(appId)
+	selectedPlugin, err := models.GetSelectedPlugin(appId,true)
 	if err != nil && err != mgo.ErrNotFound {
 		o.ServeError(http.StatusBadRequest, "failed to get selected plugin： "+err.Error())
 	}
@@ -79,10 +79,18 @@ func (o *HeartbeatController) Post() {
 		}
 	}
 	if isUpdate {
-		for k, v := range app.WhiteListConfig {
-			app.GeneralConfig[k] = v
+		whitelistConfig := make(map[string]interface{})
+		for _, configItem := range app.WhitelistConfig {
+			whiteHookTypes := make([]string, 0, len(configItem.Hook))
+			for hookType, isWhite := range configItem.Hook {
+				if isWhite {
+					whiteHookTypes = append(whiteHookTypes, hookType)
+				}
+			}
+			whitelistConfig[configItem.Url] = whiteHookTypes
 		}
-		app.GeneralConfig["algorithm_config"] = selectedPlugin.AlgorithmConfig
+		app.GeneralConfig["algorithm.config"] = selectedPlugin.AlgorithmConfig
+		app.GeneralConfig["hook.white"] = whitelistConfig
 		result["plugin"] = selectedPlugin
 		result["config_time"] = app.ConfigTime
 		result["config"] = app.GeneralConfig

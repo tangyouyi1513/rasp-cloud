@@ -76,14 +76,15 @@ func UpsertId(collection string, id interface{}, doc interface{}) error {
 	return err
 }
 
-func FindAll(collection string, query interface{}, result interface{}, skip int, limit int) (count int, err error) {
+func FindAll(collection string, query interface{}, result interface{}, skip int, limit int,
+	sortFields ...string) (count int, err error) {
 	newSession := NewSession()
 	defer newSession.Close()
 	count, err = newSession.DB(DbName).C(collection).Find(query).Count()
 	if err != nil {
 		return
 	}
-	err = newSession.DB(DbName).C(collection).Find(query).Skip(skip).Limit(limit).All(result)
+	err = newSession.DB(DbName).C(collection).Find(query).Skip(skip).Limit(limit).Sort(sortFields...).All(result)
 	return
 }
 

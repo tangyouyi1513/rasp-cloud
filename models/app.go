@@ -42,16 +42,21 @@ import (
 type App struct {
 	Id               string                 `json:"id" bson:"_id"`
 	Name             string                 `json:"name"  bson:"name"`
-	Secret           string                 `bson:"secret"`
+	Secret           string                 `json:"secret"  bson:"secret"`
 	Language         string                 `json:"language"  bson:"language"`
 	Description      string                 `json:"description"  bson:"description"`
 	ConfigTime       int64                  `json:"config_time"  bson:"config_time"`
 	GeneralConfig    map[string]interface{} `json:"general_config"  bson:"general_config"`
-	WhiteListConfig  map[string]interface{} `json:"whitelist_config"  bson:"whitelist_config"`
+	WhitelistConfig  []WhitelistConfigItem  `json:"whitelist_config"  bson:"whitelist_config"`
 	SelectedPluginId string                 `json:"selected_plugin_id" bson:"selected_plugin_id"`
 	EmailAlarmConf   EmailAlarmConf         `json:"email_alarm_conf" bson:"email_alarm_conf"`
 	DingAlarmConf    DingAlarmConf          `json:"ding_alarm_conf" bson:"ding_alarm_conf"`
 	HttpAlarmConf    HttpAlarmConf          `json:"http_alarm_conf" bson:"http_alarm_conf"`
+}
+
+type WhitelistConfigItem struct {
+	Url  string          `json:"url" bson:"url"`
+	Hook map[string]bool `json:"hook" bson:"hook"`
 }
 
 type EmailAlarmConf struct {
@@ -100,15 +105,10 @@ var (
 		"clientip.header":    "ClientIP",
 		"block.status_code":  302,
 		"block.redirect_url": "https://rasp.baidu.com/blocked/?request_id=%request_id%",
-		"block.content_xml": `<?xml version="1.0"?>
-							 <doc>
-							 <error>true</error>
-							 <reason>Request blocked by OpenRASP</reason>
-							 <request_id>%request_id%</request_id>
-							 </doc>`,
-		"block.content_html": `</script><script>
-                              location.href="https://rasp.baidu.com/blocked2/?request_id=%request_id%"
-                              </script>`,
+		"block.content_xml": "<?xml version=\"1.0\"?><doc><error>true</error><reason>Request blocked by OpenRASP" +
+			"</reason><request_id>%request_id%</request_id></doc>",
+		"block.content_html": "</script><script>" +
+			"location.href=\"https://rasp.baidu.com/blocked2/?request_id=%request_id%\"</script>",
 		"block.content_json":        `{"error":true,"reason": "Request blocked by OpenRASP","request_id": "%request_id%"}`,
 		"plugin.timeout.millis":     100,
 		"body.maxbytes":             4096,
@@ -148,12 +148,13 @@ func startAlarmTicker(duration time.Duration) {
 	for {
 		select {
 		case <-ticker.C:
-			handleAlarm()
+			handleAttackAlarm()
+			handleRaspExpiredAlarm()
 		}
 	}
 }
 
-func handleAlarm() {
+func handleAttackAlarm() {
 	defer func() {
 		if r := recover(); r != nil {
 			beego.Error("failed to handle alarm: ", r)
@@ -180,12 +181,20 @@ func handleAlarm() {
 	lastAlarmTime = now
 }
 
+func handleRaspExpiredAlarm() {
+	//defer func() {
+	//	if r := recover(); r != nil {
+	//		beego.Error("failed to handle alarm: ", r)
+	//	}
+	//}()
+	//Rasp
+}
+
 func AddApp(app *App) (result *App, err error) {
-	if app.Id == "" {
-		app.Id = generateAppId(app)
-	}
-	if app.Secret == "" {
-		app.Secret = generateSecret(app)
+	app.Id = generateAppId(app)
+	app.Secret = generateSecret(app)
+	if mongo.FindOne(appCollectionName, bson.M{"name": app.Name}, &App{}) != mgo.ErrNotFound {
+		return nil, errors.New("duplicate app name")
 	}
 	err = es.CreateEsIndex(logs.PolicyIndexName+"-"+app.Id, logs.AliasPolicyIndexName+"-"+app.Id, logs.PolicyEsMapping)
 	if err != nil {
@@ -200,7 +209,7 @@ func AddApp(app *App) (result *App, err error) {
 		return
 	}
 	// ES must be created before mongo
-	err = mongo.UpsertId(appCollectionName, app.Id, app)
+	err = mongo.Insert(appCollectionName, app)
 	if err != nil {
 		return
 	}
@@ -222,10 +231,10 @@ func generateSecret(app *App) string {
 }
 
 func GetAllApp(page int, perpage int) (count int, result []App, err error) {
-	count, err = mongo.FindAll(appCollectionName, nil, &result, perpage*(page-1), perpage)
+	count, err = mongo.FindAll(appCollectionName, nil, &result, perpage*(page-1), perpage,"name")
 	if err == nil && result != nil {
 		for _, app := range result {
-			HandleApp(&app)
+			HandleApp(&app,false)
 		}
 	}
 	return
@@ -234,7 +243,7 @@ func GetAllApp(page int, perpage int) (count int, result []App, err error) {
 func GetAppById(id string) (app *App, err error) {
 	err = mongo.FindId(appCollectionName, id, &app)
 	if err == nil && app != nil {
-		HandleApp(app)
+		HandleApp(app,false)
 	}
 	return
 }
@@ -264,7 +273,7 @@ func RegenerateSecret(appId string) (secret string, err error) {
 	return
 }
 
-func HandleApp(app *App) {
+func HandleApp(app *App,isCreate bool) {
 	if app.EmailAlarmConf.RecvAddr == nil {
 		app.EmailAlarmConf.RecvAddr = make([]string, 0)
 	}
@@ -277,14 +286,16 @@ func HandleApp(app *App) {
 	if app.HttpAlarmConf.RecvAddr == nil {
 		app.HttpAlarmConf.RecvAddr = make([]string, 0)
 	}
-	if app.EmailAlarmConf.Password != "" {
-		app.EmailAlarmConf.Password = "************"
+	if !isCreate{
+		if app.EmailAlarmConf.Password != "" {
+			app.EmailAlarmConf.Password = "************"
+		}
+		if app.DingAlarmConf.CorpSecret != "" {
+			app.DingAlarmConf.CorpSecret = "************"
+		}
 	}
-	if app.DingAlarmConf.CorpSecret != "" {
-		app.DingAlarmConf.CorpSecret = "************"
-	}
-	if app.WhiteListConfig == nil {
-		app.WhiteListConfig = make(map[string]interface{})
+	if app.WhitelistConfig == nil {
+		app.WhitelistConfig = make([]WhitelistConfigItem, 0)
 	}
 	if app.GeneralConfig == nil {
 		app.GeneralConfig = make(map[string]interface{})
@@ -303,12 +314,16 @@ func UpdateGeneralConfig(appId string, config map[string]interface{}) (*App, err
 	return UpdateAppById(appId, bson.M{"general_config": config, "config_time": time.Now().UnixNano()})
 }
 
-func UpdateWhiteListConfig(appId string, config map[string]interface{}) (app *App, err error) {
+func UpdateWhiteListConfig(appId string, config []WhitelistConfigItem) (app *App, err error) {
 	return UpdateAppById(appId, bson.M{"whitelist_config": config, "config_time": time.Now().UnixNano()})
 }
 
 func RemoveAppById(id string) (err error) {
 	return mongo.RemoveId(appCollectionName, id)
+}
+
+func GetAppCount() (count int, err error) {
+	return mongo.Count(appCollectionName)
 }
 
 func PushAttackAlarm(app *App, total int64, alarms []map[string]interface{}, isTest bool) {

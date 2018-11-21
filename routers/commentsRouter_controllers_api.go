@@ -144,10 +144,15 @@ func init() {
 			Method: "UpdateAppWhiteListConfig",
 			Router: `/whitelist/config`,
 			AllowHTTPMethods: []string{"post"},
-			MethodParams: param.Make(
-				param.New("id"),
-				param.New("whiteListConfig"),
-			),
+			MethodParams: param.Make(),
+			Params: nil})
+
+	beego.GlobalControllerRouter["rasp-cloud/controllers/api:OperationController"] = append(beego.GlobalControllerRouter["rasp-cloud/controllers/api:OperationController"],
+		beego.ControllerComments{
+			Method: "Search",
+			Router: `/search`,
+			AllowHTTPMethods: []string{"post"},
+			MethodParams: param.Make(),
 			Params: nil})
 
 	beego.GlobalControllerRouter["rasp-cloud/controllers/api:PluginController"] = append(beego.GlobalControllerRouter["rasp-cloud/controllers/api:PluginController"],
@@ -162,6 +167,14 @@ func init() {
 		beego.ControllerComments{
 			Method: "Delete",
 			Router: `/delete`,
+			AllowHTTPMethods: []string{"post"},
+			MethodParams: param.Make(),
+			Params: nil})
+
+	beego.GlobalControllerRouter["rasp-cloud/controllers/api:PluginController"] = append(beego.GlobalControllerRouter["rasp-cloud/controllers/api:PluginController"],
+		beego.ControllerComments{
+			Method: "Download",
+			Router: `/download`,
 			AllowHTTPMethods: []string{"post"},
 			MethodParams: param.Make(),
 			Params: nil})
@@ -184,7 +197,7 @@ func init() {
 
 	beego.GlobalControllerRouter["rasp-cloud/controllers/api:RaspController"] = append(beego.GlobalControllerRouter["rasp-cloud/controllers/api:RaspController"],
 		beego.ControllerComments{
-			Method: "Post",
+			Method: "Search",
 			Router: `/search`,
 			AllowHTTPMethods: []string{"post"},
 			MethodParams: param.Make(),
@@ -192,7 +205,7 @@ func init() {
 
 	beego.GlobalControllerRouter["rasp-cloud/controllers/api:ReportController"] = append(beego.GlobalControllerRouter["rasp-cloud/controllers/api:ReportController"],
 		beego.ControllerComments{
-			Method: "Get",
+			Method: "Search",
 			Router: `/dashboard`,
 			AllowHTTPMethods: []string{"post"},
 			MethodParams: param.Make(),
