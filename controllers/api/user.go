@@ -35,7 +35,7 @@ func (o *UserController) Login() {
 	var loginData map[string]string
 	err := json.Unmarshal(o.Ctx.Input.RequestBody, &loginData)
 	if err != nil {
-		o.ServeError(http.StatusBadRequest, "json format error： "+err.Error())
+		o.ServeError(http.StatusBadRequest, "json format error", err)
 	}
 	logUser := loginData["username"]
 	logPasswd := loginData["password"]
@@ -53,36 +53,18 @@ func (o *UserController) Login() {
 		strconv.FormatInt(time.Now().UnixNano(), 10))))
 	err = models.NewCookie(cookie)
 	if err != nil {
-		o.ServeError(http.StatusUnauthorized, "failed to create cookie: "+err.Error())
+		o.ServeError(http.StatusUnauthorized, "failed to create cookie", err)
 	}
 	o.Ctx.SetCookie(models.AuthCookieName, cookie)
 	o.ServeWithEmptyData()
 }
 
-// @router /update [post]
-func (o *UserController) Update() {
-	var param struct {
-		OldPwd string `json:"old_password"`
-		NewPwd string `json:"new_password"`
-	}
-	err := json.Unmarshal(o.Ctx.Input.RequestBody, &param)
-	if err != nil {
-		o.ServeError(http.StatusBadRequest, "json format error： "+err.Error())
-	}
-	if param.OldPwd == "" {
-		o.ServeError(http.StatusBadRequest, "old_password can not be empty")
-	}
-	if param.NewPwd == "" {
-		o.ServeError(http.StatusBadRequest, "new_password can not be empty")
-	}
-	err = models.UpdatePassword(param.OldPwd, param.NewPwd)
-	if err != nil {
-		o.ServeError(http.StatusBadRequest, err.Error())
-	}
+// @router /islogin [get,post]
+func (o *UserController) IsLogin() {
 	o.ServeWithEmptyData()
 }
 
-// @router /logout [get]
+// @router /logout [get,post]
 func (o *UserController) Logout() {
 	o.Ctx.SetCookie(models.AuthCookieName, "")
 	cookie := o.Ctx.GetCookie(models.AuthCookieName)

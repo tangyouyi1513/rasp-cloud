@@ -237,6 +237,14 @@ func init() {
 
 	beego.GlobalControllerRouter["rasp-cloud/controllers/api:UserController"] = append(beego.GlobalControllerRouter["rasp-cloud/controllers/api:UserController"],
 		beego.ControllerComments{
+			Method: "IsLogin",
+			Router: `/islogin`,
+			AllowHTTPMethods: []string{"get","post"},
+			MethodParams: param.Make(),
+			Params: nil})
+
+	beego.GlobalControllerRouter["rasp-cloud/controllers/api:UserController"] = append(beego.GlobalControllerRouter["rasp-cloud/controllers/api:UserController"],
+		beego.ControllerComments{
 			Method: "Login",
 			Router: `/login`,
 			AllowHTTPMethods: []string{"post"},
@@ -247,15 +255,7 @@ func init() {
 		beego.ControllerComments{
 			Method: "Logout",
 			Router: `/logout`,
-			AllowHTTPMethods: []string{"get"},
-			MethodParams: param.Make(),
-			Params: nil})
-
-	beego.GlobalControllerRouter["rasp-cloud/controllers/api:UserController"] = append(beego.GlobalControllerRouter["rasp-cloud/controllers/api:UserController"],
-		beego.ControllerComments{
-			Method: "Update",
-			Router: `/update`,
-			AllowHTTPMethods: []string{"post"},
+			AllowHTTPMethods: []string{"get","post"},
 			MethodParams: param.Make(),
 			Params: nil})
 
