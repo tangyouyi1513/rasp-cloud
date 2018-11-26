@@ -20,6 +20,10 @@ import (
 	"github.com/astaxie/beego"
 	"rasp-cloud/tools"
 	"gopkg.in/mgo.v2/bson"
+	"strconv"
+	"math/rand"
+	"fmt"
+	"crypto/sha1"
 )
 
 var (
@@ -141,4 +145,10 @@ func RemoveAll(collection string, selector interface{}) error {
 	defer newSession.Close()
 	_, err := newSession.DB(DbName).C(collection).RemoveAll(selector)
 	return err
+}
+
+func GenerateObjectId() string {
+	random := string(bson.NewObjectId()) +
+		strconv.FormatInt(time.Now().UnixNano(), 10) + strconv.Itoa(rand.Intn(10000))
+	return fmt.Sprintf("%x", sha1.Sum([]byte(random)))
 }

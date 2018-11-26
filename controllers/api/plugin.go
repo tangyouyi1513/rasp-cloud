@@ -106,13 +106,8 @@ func (o *PluginController) Upload() {
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to add plugin to mongodb: "+err.Error())
 	}
-	models.AddOperation(&models.Operation{
-		AppId:   appId,
-		TypeId:  models.OperationTypeUploadPlugin,
-		User:    models.GetLoginUser(),
-		Ip:      o.Ctx.Input.IP(),
-		Content: "uploaded the plugin: " + latestPlugin.Id,
-	})
+	models.AddOperation(appId, models.OperationTypeUploadPlugin, o.Ctx.Input.IP(),
+		"uploaded the plugin: "+latestPlugin.Id)
 	o.Serve(latestPlugin)
 }
 
@@ -181,12 +176,7 @@ func (o *PluginController) Delete() {
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to delete the plugin: "+err.Error())
 	}
-	models.AddOperation(&models.Operation{
-		AppId:   plugin.AppId,
-		TypeId:  models.OperationTypeDeletePlugin,
-		User:    models.GetLoginUser(),
-		Ip:      o.Ctx.Input.IP(),
-		Content: "deleted the plugin: " + plugin.Id,
-	})
+	models.AddOperation(plugin.AppId, models.OperationTypeDeletePlugin, o.Ctx.Input.IP(),
+		"deleted the plugin: "+plugin.Id)
 	o.ServeWithEmptyData()
 }

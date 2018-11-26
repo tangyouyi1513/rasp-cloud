@@ -81,18 +81,16 @@ func (o *RaspController) Post() {
 			o.ServeError(http.StatusBadRequest, "rasp primary_ip format error: "+result.Error.Message)
 		}
 	}
+	if rasp.HeartbeatInterval <= 0 {
+		o.ServeError(http.StatusBadRequest, "heartbeat_interval must be greater than 0")
+	}
 
 	rasp.LastHeartbeatTime = time.Now().Unix()
 	err = models.UpsertRaspById(rasp.Id, rasp)
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to add rasp: "+err.Error())
 	}
-	models.AddOperation(&models.Operation{
-		TypeId:  models.OperationTypeRegisterRasp,
-		AppId:   rasp.AppId,
-		User:    "-",
-		Ip:      o.Ctx.Input.IP(),
-		Content: "registered a new rasp: " + rasp.Id + ",hostname is: " + rasp.HostName,
-	})
+	models.AddOperation(rasp.AppId, models.OperationTypeRegisterRasp, o.Ctx.Input.IP(),
+		"registered the rasp: " + rasp.Id + ",hostname is: " + rasp.HostName)
 	o.Serve(rasp)
 }

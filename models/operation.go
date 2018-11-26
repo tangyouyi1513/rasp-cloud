@@ -59,7 +59,7 @@ const (
 func init() {
 	count, err := mongo.Count(operationCollectionName)
 	if err != nil {
-		tools.Panic("failed to get operation collection count")
+		tools.Panic("failed to get operation collection count: " + err.Error())
 	}
 	if count <= 0 {
 		index := &mgo.Index{
@@ -68,9 +68,9 @@ func init() {
 			Background: true,
 			Name:       "app_id",
 		}
-		mongo.CreateIndex(operationCollectionName, index)
+		err = mongo.CreateIndex(operationCollectionName, index)
 		if err != nil {
-			tools.Panic("failed to create app_id index for operation collection")
+			tools.Panic("failed to create app_id index for operation collection: " + err.Error())
 		}
 
 		index = &mgo.Index{
@@ -79,19 +79,30 @@ func init() {
 			Background: true,
 			Name:       "time",
 		}
-		mongo.CreateIndex(operationCollectionName, index)
+		err = mongo.CreateIndex(operationCollectionName, index)
 		if err != nil {
-			tools.Panic("failed to create operate_time index for operation collection")
+			tools.Panic("failed to create operate_time index for operation collection: " + err.Error())
 		}
 	}
 }
 
-func AddOperation(operation *Operation) error {
-	operation.Id = generateOperationId()
-	operation.Time = time.Now().UnixNano() / 1000000
-	err := mongo.Insert(operationCollectionName, operation)
+func AddOperation(appId string, typeId int, ip string, content string) error {
+	userName, err := GetLoginUserName()
 	if err != nil {
-		beego.Error("failed to add operation with content: " + operation.Content + ",error is: " + err.Error())
+		var operation = &Operation{
+			AppId:   appId,
+			TypeId:  typeId,
+			Ip:      ip,
+			Id:      generateOperationId(),
+			User:    userName,
+			Time:    time.Now().UnixNano() / 1000000,
+			Content: content,
+		}
+		err := mongo.Insert(operationCollectionName, operation)
+		if err != nil {
+			beego.Error("failed to add operation with content: " + operation.Content + ",error is: " + err.Error())
+		}
+		return err
 	}
 	return err
 }

@@ -16,11 +16,6 @@ package models
 
 import (
 	"rasp-cloud/mongo"
-	"strconv"
-	"time"
-	"math/rand"
-	"fmt"
-	"crypto/sha1"
 )
 
 type Token struct {
@@ -49,7 +44,7 @@ func HasToken(token string) (bool, error) {
 
 func AddToken(token *Token) (result *Token, err error) {
 	if token.Token == "" {
-		token.Token = generateToken()
+		token.Token = generateOperationId()
 	}
 	err = mongo.UpsertId(tokenCollectionName, token.Token, token)
 	result = token
@@ -62,9 +57,4 @@ func RemoveToken(tokenId string) (token *Token, err error) {
 		return
 	}
 	return token, mongo.RemoveId(tokenCollectionName, tokenId)
-}
-
-func generateToken() string {
-	random := "openrasp_token" + strconv.FormatInt(time.Now().UnixNano(), 10) + strconv.Itoa(rand.Intn(5000))
-	return fmt.Sprintf("%x", sha1.Sum([]byte(random)))
 }

@@ -152,13 +152,8 @@ func (o *AppController) RegenerateAppSecret() {
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to get secret： "+err.Error())
 	}
-	models.AddOperation(&models.Operation{
-		AppId:   param.AppId,
-		TypeId:  models.OperationTypeRegenerateSecret,
-		User:    models.GetLoginUser(),
-		Ip:      o.Ctx.Input.IP(),
-		Content: "regenerated the secret",
-	})
+	models.AddOperation(param.AppId, models.OperationTypeRegenerateSecret,
+		o.Ctx.Input.IP(), "regenerated the secret")
 	o.Serve(map[string]string{
 		"secret": secret,
 	})
@@ -185,13 +180,8 @@ func (o *AppController) UpdateAppGeneralConfig() {
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to update app general config: "+err.Error())
 	}
-	models.AddOperation(&models.Operation{
-		AppId:   param.AppId,
-		TypeId:  models.OperationTypeUpdateGenerateConfig,
-		User:    models.GetLoginUser(),
-		Ip:      o.Ctx.Input.IP(),
-		Content: "updated the general configuration",
-	})
+	models.AddOperation(param.AppId, models.OperationTypeUpdateGenerateConfig,
+		o.Ctx.Input.IP(), "updated the general configuration")
 	o.Serve(app)
 }
 
@@ -216,13 +206,8 @@ func (o *AppController) UpdateAppWhiteListConfig() {
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to update app whitelist config: "+err.Error())
 	}
-	models.AddOperation(&models.Operation{
-		AppId:   param.AppId,
-		TypeId:  models.OperationTypeUpdateWhitelistConfig,
-		User:    models.GetLoginUser(),
-		Ip:      o.Ctx.Input.IP(),
-		Content: "updated the whitelist configuration",
-	})
+	models.AddOperation(param.AppId, models.OperationTypeUpdateWhitelistConfig,
+		o.Ctx.Input.IP(), "updated the whitelist configuration")
 	o.Serve(app)
 }
 
@@ -247,13 +232,8 @@ func (o *AppController) UpdateAppAlgorithmConfig() {
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to update algorithm config: "+err.Error())
 	}
-	models.AddOperation(&models.Operation{
-		AppId:   appId,
-		TypeId:  models.OperationTypeUpdateAlgorithmConfig,
-		User:    models.GetLoginUser(),
-		Ip:      o.Ctx.Input.IP(),
-		Content: "updated the whitelist configuration",
-	})
+	models.AddOperation(appId, models.OperationTypeUpdateAlgorithmConfig,
+		o.Ctx.Input.IP(), "updated the whitelist configuration")
 	o.ServeWithEmptyData()
 }
 
@@ -322,13 +302,7 @@ func (o *AppController) Post() {
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "create app failed: "+err.Error())
 	}
-	models.AddOperation(&models.Operation{
-		AppId:   app.Id,
-		TypeId:  models.OperationTypeAddApp,
-		User:    models.GetLoginUser(),
-		Ip:      o.Ctx.Input.IP(),
-		Content: "created the app: " + app.Name,
-	})
+	models.AddOperation(app.Id, models.OperationTypeAddApp, o.Ctx.Input.IP(), "created the app: "+app.Name)
 	o.Serve(app)
 }
 
@@ -382,15 +356,7 @@ func (o *AppController) ConfigApp() {
 		o.ServeError(http.StatusBadRequest, "failed to update app config: "+err.Error())
 	}
 	operationData, err := json.Marshal(updateData)
-	if err != nil {
-		models.AddOperation(&models.Operation{
-			AppId:   app.Id,
-			TypeId:  models.OperationTypeEditApp,
-			User:    models.GetLoginUser(),
-			Ip:      o.Ctx.Input.IP(),
-			Content: "edited the app: " + string(operationData),
-		})
-	}
+	models.AddOperation(app.Id, models.OperationTypeEditApp, o.Ctx.Input.IP(), "edited the app: "+string(operationData))
 	o.Serve(app)
 }
 
@@ -513,13 +479,7 @@ func (o *AppController) Delete() {
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to remove operation log by app_id： "+err.Error())
 	}
-	models.AddOperation(&models.Operation{
-		AppId:   app.Id,
-		TypeId:  models.OperationTypeDeleteApp,
-		User:    models.GetLoginUser(),
-		Ip:      o.Ctx.Input.IP(),
-		Content: "deleted the app",
-	})
+	models.AddOperation(app.Id, models.OperationTypeDeleteApp, o.Ctx.Input.IP(),  "deleted the app")
 	o.ServeWithEmptyData()
 }
 
@@ -628,13 +588,8 @@ func (o *AppController) ConfigAlarm() {
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to update alarm config: "+err.Error())
 	}
-	models.AddOperation(&models.Operation{
-		AppId:   app.Id,
-		TypeId:  models.OperationTypeUpdateAlarmConfig,
-		User:    models.GetLoginUser(),
-		Ip:      o.Ctx.Input.IP(),
-		Content: "updated the alarm configuration",
-	})
+	models.AddOperation(app.Id, models.OperationTypeUpdateAlarmConfig, o.Ctx.Input.IP(),
+		"updated the alarm configuration")
 	o.Serve(app)
 }
 
@@ -713,13 +668,8 @@ func (o *AppController) SetSelectedPlugin() {
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to set selected plugin: "+err.Error())
 	}
-	models.AddOperation(&models.Operation{
-		AppId:   appId,
-		TypeId:  models.OperationTypeSetSelectedPlugin,
-		User:    models.GetLoginUser(),
-		Ip:      o.Ctx.Input.IP(),
-		Content: "set up selected plugin: "+pluginId,
-	})
+	models.AddOperation(appId, models.OperationTypeSetSelectedPlugin, o.Ctx.Input.IP(),
+		"set up selected plugin: " + pluginId)
 	o.ServeWithEmptyData()
 }
 

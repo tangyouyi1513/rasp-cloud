@@ -122,7 +122,7 @@ var (
 func init() {
 	count, err := mongo.Count(appCollectionName)
 	if err != nil {
-		tools.Panic("failed to get app collection count")
+		tools.Panic("failed to get app collection count: " + err.Error())
 	}
 	if count <= 0 {
 		index := &mgo.Index{
@@ -133,7 +133,7 @@ func init() {
 		}
 		err = mongo.CreateIndex(appCollectionName, index)
 		if err != nil {
-			tools.Panic("failed to create index for app collection")
+			tools.Panic("failed to create index for app collection: " + err.Error())
 		}
 	}
 	alarmDuration := beego.AppConfig.DefaultInt64("AlarmDuration", 120)
@@ -231,10 +231,10 @@ func generateSecret(app *App) string {
 }
 
 func GetAllApp(page int, perpage int) (count int, result []App, err error) {
-	count, err = mongo.FindAll(appCollectionName, nil, &result, perpage*(page-1), perpage,"name")
+	count, err = mongo.FindAll(appCollectionName, nil, &result, perpage*(page-1), perpage, "name")
 	if err == nil && result != nil {
 		for _, app := range result {
-			HandleApp(&app,false)
+			HandleApp(&app, false)
 		}
 	}
 	return
@@ -243,7 +243,7 @@ func GetAllApp(page int, perpage int) (count int, result []App, err error) {
 func GetAppById(id string) (app *App, err error) {
 	err = mongo.FindId(appCollectionName, id, &app)
 	if err == nil && app != nil {
-		HandleApp(app,false)
+		HandleApp(app, false)
 	}
 	return
 }
@@ -273,7 +273,7 @@ func RegenerateSecret(appId string) (secret string, err error) {
 	return
 }
 
-func HandleApp(app *App,isCreate bool) {
+func HandleApp(app *App, isCreate bool) {
 	if app.EmailAlarmConf.RecvAddr == nil {
 		app.EmailAlarmConf.RecvAddr = make([]string, 0)
 	}
@@ -286,7 +286,7 @@ func HandleApp(app *App,isCreate bool) {
 	if app.HttpAlarmConf.RecvAddr == nil {
 		app.HttpAlarmConf.RecvAddr = make([]string, 0)
 	}
-	if !isCreate{
+	if !isCreate {
 		if app.EmailAlarmConf.Password != "" {
 			app.EmailAlarmConf.Password = "************"
 		}

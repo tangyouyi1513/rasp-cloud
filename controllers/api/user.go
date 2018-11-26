@@ -45,18 +45,41 @@ func (o *UserController) Login() {
 	if len(logUser) > 512 || len(logPasswd) > 512 {
 		o.ServeError(http.StatusBadRequest, "the length of username or password cannot be greater than 512")
 	}
-	if logUser == models.GetLoginUser() && logPasswd == models.GetLoginPasswd() {
-		cookie := fmt.Sprintf("%x", md5.Sum([]byte(strconv.Itoa(rand.Intn(10000)) + logUser + "openrasp"+
-			strconv.FormatInt(time.Now().UnixNano(), 10))))
-		err := models.NewCookie(cookie)
-		if err != nil {
-			o.ServeError(http.StatusUnauthorized, "failed to create cookie: "+err.Error())
-		}
-		o.Ctx.SetCookie(models.AuthCookieName, cookie)
-		o.ServeWithEmptyData()
-	} else {
-		o.ServeError(http.StatusUnauthorized, "username or password is incorrect")
+	err = models.VerifyUser(logUser, logPasswd)
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "username or password is incorrect")
 	}
+	cookie := fmt.Sprintf("%x", md5.Sum([]byte(strconv.Itoa(rand.Intn(10000)) + logUser + "openrasp"+
+		strconv.FormatInt(time.Now().UnixNano(), 10))))
+	err = models.NewCookie(cookie)
+	if err != nil {
+		o.ServeError(http.StatusUnauthorized, "failed to create cookie: "+err.Error())
+	}
+	o.Ctx.SetCookie(models.AuthCookieName, cookie)
+	o.ServeWithEmptyData()
+}
+
+// @router /update [post]
+func (o *UserController) Update() {
+	var param struct {
+		OldPwd string `json:"old_password"`
+		NewPwd string `json:"new_password"`
+	}
+	err := json.Unmarshal(o.Ctx.Input.RequestBody, &param)
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, "json format error： "+err.Error())
+	}
+	if param.OldPwd == "" {
+		o.ServeError(http.StatusBadRequest, "old_password can not be empty")
+	}
+	if param.NewPwd == "" {
+		o.ServeError(http.StatusBadRequest, "new_password can not be empty")
+	}
+	err = models.UpdatePassword(param.OldPwd, param.NewPwd)
+	if err != nil {
+		o.ServeError(http.StatusBadRequest, err.Error())
+	}
+	o.ServeWithEmptyData()
 }
 
 // @router /logout [get]

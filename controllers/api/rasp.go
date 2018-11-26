@@ -83,12 +83,6 @@ func (o *RaspController) Delete() {
 	if err != nil {
 		o.ServeError(http.StatusBadRequest, "failed to remove rasp： "+err.Error())
 	}
-	models.AddOperation(&models.Operation{
-		AppId:   rasp.AppId,
-		TypeId:  models.OperationTypeDeleteRasp,
-		User:    models.GetLoginUser(),
-		Ip:      o.Ctx.Input.IP(),
-		Content: "deleted the rasp: " + rasp.Id,
-	})
+	models.AddOperation(rasp.AppId, models.OperationTypeDeleteRasp, o.Ctx.Input.IP(), "deleted the rasp: "+rasp.Id)
 	o.ServeWithEmptyData()
 }
